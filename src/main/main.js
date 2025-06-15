@@ -309,3 +309,13 @@ ipcMain.handle('log', (event, message) => {
   console.log('Renderer log:', message);
   return { success: true };
 });
+
+// Add this new handler with the other print handlers
+ipcMain.handle('print:capture-preview', async (event, options) => {
+  try {
+    return await printService.capturePreview(options);
+  } catch (error) {
+    console.error('Error capturing print preview:', error);
+    return { success: false, error: error.message };
+  }
+});

@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('api', {
     generatePDF: (options) => ipcRenderer.invoke('print:generate-pdf', options),
     getSettings: () => ipcRenderer.invoke('print:get-settings'),
     saveSettings: (settings) => ipcRenderer.invoke('print:save-settings', settings),
+    capturePreview: (options) => ipcRenderer.invoke('print:capture-preview', options),
   },
 });
 

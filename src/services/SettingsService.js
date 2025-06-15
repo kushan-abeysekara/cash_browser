@@ -24,6 +24,9 @@ class SettingsService {
     if (!this.store.has('settings')) {
       this.store.set('settings', this.defaultSettings);
     }
+    
+    // Make the settings service globally available for other services
+    global.settingsService = this;
   }
 
   getAllSettings() {

@@ -11,6 +11,8 @@ export class PrintController {
     this.savedSettings = {};
     this.customPaperSizes = ['Letter', 'A4', 'B5', 'Legal']; // Standard paper sizes we want to ensure are available
     this.previousSettings = null;
+    this.previewFrame = null;
+    this.previewDocument = null;
   }
 
   async initialize() {
@@ -18,6 +20,7 @@ export class PrintController {
     this.printForm = document.getElementById('print-form');
     this.printersList = document.getElementById('printers-list');
     this.paperSizeSelect = document.getElementById('paper-size');
+    this.previewFrame = document.getElementById('print-preview-frame');
     
     // Add null checks before accessing elements
     if (!this.printModal) {
@@ -252,20 +255,127 @@ export class PrintController {
     if (this.printModal) {
       this.printModal.style.display = 'flex';
       
-      // Generate preview
-      this.updatePreview();
+      // Generate preview - capture this async operation
+      setTimeout(() => this.updatePreview(), 300);
     }
   }
   
   closePrintModal() {
     if (this.printModal) {
       this.printModal.style.display = 'none';
+      
+      // Clear the preview when closing
+      if (this.previewFrame) {
+        try {
+          this.previewFrame.srcdoc = '';
+        } catch (error) {
+          console.error('Error clearing preview:', error);
+        }
+      }
     }
   }
   
   async updatePreview() {
-    // This would generate a preview of the print content
-    // For simplicity, we'll skip the implementation details here
+    try {
+      if (!this.previewFrame || !this.webContentsId) {
+        console.error('Preview frame or webContentsId not available');
+        return;
+      }
+      
+      // Get the webview element with current content
+      const webview = document.getElementById('web-view');
+      if (!webview) {
+        console.error('Webview element not found');
+        return;
+      }
+      
+      // Capture the current webview content using the print to PDF API
+      const result = await window.api.print.capturePreview({
+        webContentsId: this.webContentsId,
+        format: 'html'
+      });
+      
+      if (!result || !result.success) {
+        console.error('Failed to capture preview:', result?.error || 'Unknown error');
+        return;
+      }
+      
+      // Generate a complete HTML document with necessary styling
+      const previewHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            @media print {
+              body {
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            
+            body {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+              background: white;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            }
+            
+            img, svg {
+              max-width: 100%;
+            }
+            
+            /* Apply paper size from settings */
+            @page {
+              size: ${this.savedSettings.paperSize || 'auto'};
+              margin: ${this.getMarginValue(this.savedSettings.margins)};
+            }
+            
+            .print-content {
+              padding: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-content">${result.content}</div>
+        </body>
+        </html>
+      `;
+      
+      // Apply the HTML content to the preview iframe
+      this.previewFrame.srcdoc = previewHtml;
+      
+      // Set up the iframe onload handler to access document
+      this.previewFrame.onload = () => {
+        try {
+          this.previewDocument = this.previewFrame.contentDocument;
+          
+          // Apply orientation
+          const orientation = this.savedSettings.orientation || 'portrait';
+          if (this.previewDocument && orientation === 'landscape') {
+            const style = this.previewDocument.createElement('style');
+            style.textContent = '@page { size: landscape; }';
+            this.previewDocument.head.appendChild(style);
+          }
+        } catch (error) {
+          console.error('Error setting up preview document:', error);
+        }
+      };
+    } catch (error) {
+      console.error('Error updating preview:', error);
+      this.notification.show('Preview Error', 'Failed to generate print preview', 'error');
+    }
+  }
+  
+  getMarginValue(marginType) {
+    switch(marginType) {
+      case 1: return '0mm'; // None
+      case 2: return '5mm'; // Minimum
+      default: return '15mm'; // Default
+    }
   }
   
   async savePrintSettings() {

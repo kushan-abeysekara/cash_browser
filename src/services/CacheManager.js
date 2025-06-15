@@ -30,6 +30,18 @@ class CacheManager {
         this.cacheManifest = {};
       }
     }
+    
+    // Set cache duration from settings if available
+    if (global.settingsService) {
+      try {
+        const settings = global.settingsService.getAllSettings();
+        if (settings && settings.cacheDuration) {
+          this.maxAge = settings.cacheDuration * 60 * 60 * 1000; // Convert hours to milliseconds
+        }
+      } catch (error) {
+        console.error('Error loading cache duration from settings:', error);
+      }
+    }
   }
 
   async saveManifest() {
