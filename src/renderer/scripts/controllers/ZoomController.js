@@ -8,6 +8,7 @@ export class ZoomController {
   }
 
   initialize() {
+    // Corrected webview ID to match HTML
     this.webview = document.getElementById('web-view');
     if (!this.webview) {
       console.error('Webview element not found');

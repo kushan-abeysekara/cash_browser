@@ -11,10 +11,17 @@ export class AuthController {
     // Initialize login modal elements
     this.loginModal = document.getElementById('login-modal');
     this.loginForm = document.getElementById('login-form');
+    
+    // Add null checks before accessing elements
+    if (!this.loginModal) {
+      console.error('Login modal element not found');
+      return;
+    }
+    
     const cancelButton = document.getElementById('cancel-login');
     const closeButton = this.loginModal.querySelector('.close-button');
     
-    // Set up event listeners
+    // Set up event listeners with null checks
     if (this.loginForm) {
       this.loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
