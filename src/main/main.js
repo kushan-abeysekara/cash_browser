@@ -5,12 +5,16 @@ const CacheManager = require('../services/CacheManager');
 const AuthService = require('../services/AuthService');
 const ResourceInterceptor = require('../services/ResourceInterceptor');
 const DashboardService = require('../services/DashboardService');
+const SettingsService = require('../services/SettingsService');
+const PrintService = require('../services/PrintService'); // Add this line
 
 // Services initialization
 const cacheManager = new CacheManager();
 const authService = new AuthService();
 const resourceInterceptor = new ResourceInterceptor(cacheManager);
 const dashboardService = new DashboardService(authService);
+const settingsService = new SettingsService();
+const printService = new PrintService(); // Add this line
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -57,6 +61,8 @@ async function createWindow() {
 // initialization and is ready to create browser windows.
 app.whenReady().then(async () => {
   await cacheManager.initialize();
+  settingsService.initialize();
+  printService.initialize(); // Add this line
   
   // Initially disable resource interception for regular browsing
   resourceInterceptor.setEnabled(false);
@@ -193,6 +199,110 @@ ipcMain.handle('dashboard:stop-polling', async (event, { url, endpoint }) => {
   }
 });
 */
+
+// Add settings IPC handlers
+ipcMain.handle('settings:get-all', async () => {
+  try {
+    return { 
+      success: true, 
+      settings: settingsService.getAllSettings() 
+    };
+  } catch (error) {
+    console.error('Error getting settings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('settings:get', async (event, key) => {
+  try {
+    return { 
+      success: true, 
+      value: settingsService.getSetting(key) 
+    };
+  } catch (error) {
+    console.error(`Error getting setting ${key}:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('settings:update', async (event, { key, value }) => {
+  try {
+    const settings = settingsService.updateSetting(key, value);
+    return { success: true, settings };
+  } catch (error) {
+    console.error(`Error updating setting ${key}:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('settings:update-all', async (event, settings) => {
+  try {
+    const updatedSettings = settingsService.updateSettings(settings);
+    return { success: true, settings: updatedSettings };
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get default URL
+ipcMain.handle('settings:get-default-url', async () => {
+  try {
+    return { 
+      success: true, 
+      url: settingsService.getDefaultUrl() 
+    };
+  } catch (error) {
+    console.error('Error getting default URL:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Print related IPC handlers
+ipcMain.handle('print:get-printers', async () => {
+  try {
+    return await printService.getPrinters();
+  } catch (error) {
+    console.error('Error getting printers:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('print:execute', async (event, options) => {
+  try {
+    return await printService.print(options);
+  } catch (error) {
+    console.error('Error printing:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('print:generate-pdf', async (event, options) => {
+  try {
+    return await printService.printToPDF(options);
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('print:get-settings', async () => {
+  try {
+    return printService.getSettings();
+  } catch (error) {
+    console.error('Error getting print settings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('print:save-settings', async (event, settings) => {
+  try {
+    return printService.saveSettings(settings);
+  } catch (error) {
+    console.error('Error saving print settings:', error);
+    return { success: false, error: error.message };
+  }
+});
 
 // Add a new IPC handler for logging from the renderer process
 ipcMain.handle('log', (event, message) => {

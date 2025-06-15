@@ -421,6 +421,59 @@ webview {
   font-size: 1rem;
 }
 
+/* Form help text */
+.form-help {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-top: 0.25rem;
+}
+
+/* Toggle switch */
+.toggle-container {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.toggle-container input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-label {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.toggle-label:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-label {
+  background-color: var(--primary-color);
+}
+
+input:checked + .toggle-label:before {
+  transform: translateX(26px);
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -469,4 +522,72 @@ webview {
 .notification-message {
   font-size: 0.875rem;
   color: var(--text-color);
+}
+
+/* Print Modal Styles */
+.print-modal {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.print-layout {
+  display: flex;
+  gap: 20px;
+  height: 60vh;
+}
+
+.print-preview-container {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.print-preview-header {
+  padding: 10px;
+  background-color: var(--header-color);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 500;
+}
+
+.print-preview {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background-color: var(--background-color);
+}
+
+.print-options-container {
+  flex: 2;
+  padding-right: 10px;
+  overflow-y: auto;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.small-input {
+  width: 60px;
+}
+
+.radio-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 5px 0;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.checkbox-group input[type="checkbox"] {
+  margin-right: 8px;
 }

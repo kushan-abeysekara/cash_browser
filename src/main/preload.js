@@ -27,6 +27,15 @@ contextBridge.exposeInMainWorld('api', {
     stopPolling: (params) => ipcRenderer.invoke('dashboard:stop-polling', params),
   },
   
+  // Settings operations
+  settings: {
+    getAll: () => ipcRenderer.invoke('settings:get-all'),
+    get: (key) => ipcRenderer.invoke('settings:get', key),
+    update: (key, value) => ipcRenderer.invoke('settings:update', { key, value }),
+    updateAll: (settings) => ipcRenderer.invoke('settings:update-all', settings),
+    getDefaultUrl: () => ipcRenderer.invoke('settings:get-default-url'),
+  },
+  
   // Logging
   log: (message) => ipcRenderer.invoke('log', message),
   
@@ -43,7 +52,16 @@ contextBridge.exposeInMainWorld('api', {
       return () => ipcRenderer.removeListener(channel, subscription);
     }
     return null;
-  }
+  },
+  
+  // Print operations
+  print: {
+    getPrinters: () => ipcRenderer.invoke('print:get-printers'),
+    print: (options) => ipcRenderer.invoke('print:execute', options),
+    generatePDF: (options) => ipcRenderer.invoke('print:generate-pdf', options),
+    getSettings: () => ipcRenderer.invoke('print:get-settings'),
+    saveSettings: (settings) => ipcRenderer.invoke('print:save-settings', settings),
+  },
 });
 
 // Log that preload is completed

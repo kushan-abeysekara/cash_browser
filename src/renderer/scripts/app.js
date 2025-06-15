@@ -4,6 +4,8 @@ import { BrowserController } from './controllers/BrowserController.js';
 import { CacheController } from './controllers/CacheController.js';
 import { DashboardController } from './controllers/DashboardController.js';
 import { AuthController } from './controllers/AuthController.js';
+import { SettingsController } from './controllers/SettingsController.js';
+import { PrintController } from './controllers/PrintController.js'; // Add this import
 import { NotificationService } from './services/NotificationService.js';
 import { ZoomController } from './controllers/ZoomController.js'; // New import
 
@@ -12,7 +14,7 @@ const notification = new NotificationService();
 
 // Initialize controllers
 const tabController = new TabController();
-let authController, browserController, cacheController, dashboardController, zoomController;
+let authController, browserController, cacheController, dashboardController, zoomController, settingsController, printController; // Add printController
 
 // Helper function to log to both console and main process
 function log(message) {
@@ -23,7 +25,7 @@ function log(message) {
 }
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   log('DOM loaded, initializing application...');
   
   try {
@@ -74,6 +76,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     try {
+      settingsController = new SettingsController(notification);
+      await settingsController.initialize();
+      log('SettingsController initialized');
+    } catch (error) {
+      log(`Error initializing SettingsController: ${error.message}`);
+      console.error('SettingsController init error:', error);
+    }
+    
+    try {
+      printController = new PrintController(notification);
+      await printController.initialize();
+      log('PrintController initialized');
+    } catch (error) {
+      log(`Error initializing PrintController: ${error.message}`);
+      console.error('PrintController init error:', error);
+    }
+    
+    try {
       tabController.initialize();
       log('TabController initialized');
     } catch (error) {
@@ -100,11 +120,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuBrowser = document.getElementById('menu-browser');
     const menuCache = document.getElementById('menu-cache');
     const menuDashboard = document.getElementById('menu-dashboard');
+    const menuSettings = document.getElementById('menu-settings');
     const zoomIn = document.getElementById('zoom-in');
     const zoomOut = document.getElementById('zoom-out');
     const zoomReset = document.getElementById('zoom-reset');
     const toggleInterception = document.getElementById('toggle-interception');
     const clearCacheMenu = document.getElementById('clear-cache-menu');
+    const printMenuItem = document.getElementById('menu-print');
     
     // Add navigation state listener to update UI buttons
     browserController.addNavigationStateListener((state) => {
@@ -224,6 +246,28 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
     
+    // Print menu item handler
+    if (printMenuItem && dropdownMenu) {
+      printMenuItem.addEventListener('click', () => {
+        if (browserController && browserController.webview) {
+          dropdownMenu.classList.remove('show');
+          // Show print dialog with webview ID for printing
+          printController.showPrintModal(browserController.webview.getWebContentsId());
+        }
+      });
+    }
+    
+    // Print shortcut listener
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault(); // Prevent default print dialog
+        if (browserController && browserController.webview) {
+          // Show print dialog with webview ID for printing
+          printController.showPrintModal(browserController.webview.getWebContentsId());
+        }
+      }
+    });
+
     // Setup URL input handling
     if (goButton && urlInput) {
       goButton.addEventListener('click', () => {
