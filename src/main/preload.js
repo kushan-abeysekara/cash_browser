@@ -8,20 +8,27 @@ contextBridge.exposeInMainWorld('api', {
     fetchUrl: (url) => ipcRenderer.invoke('cache:fetch-url', url),
     clearCache: () => ipcRenderer.invoke('cache:clear'),
     getCacheStatus: () => ipcRenderer.invoke('cache:status'),
+    toggleInterception: (enabled) => ipcRenderer.invoke('cache:toggle-interception', enabled),
   },
   
   // Authentication operations
   auth: {
     login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
     logout: () => ipcRenderer.invoke('auth:logout'),
-    checkSession: () => ipcRenderer.invoke('auth:check-session'),
+    checkSession: (url) => ipcRenderer.invoke('auth:check-session', url),
   },
   
   // Dashboard operations
   dashboard: {
     connectRealtime: (dashboardUrl) => ipcRenderer.invoke('dashboard:connect-realtime', dashboardUrl),
-    disconnectRealtime: () => ipcRenderer.invoke('dashboard:disconnect-realtime'),
+    disconnectRealtime: (dashboardUrl) => ipcRenderer.invoke('dashboard:disconnect-realtime', dashboardUrl),
+    fetchData: (params) => ipcRenderer.invoke('dashboard:fetch-data', params),
+    startPolling: (params) => ipcRenderer.invoke('dashboard:start-polling', params),
+    stopPolling: (params) => ipcRenderer.invoke('dashboard:stop-polling', params),
   },
+  
+  // Logging
+  log: (message) => ipcRenderer.invoke('log', message),
   
   // Event listeners
   on: (channel, callback) => {
@@ -38,3 +45,6 @@ contextBridge.exposeInMainWorld('api', {
     return null;
   }
 });
+
+// Log that preload is completed
+console.log('Preload script executed successfully');

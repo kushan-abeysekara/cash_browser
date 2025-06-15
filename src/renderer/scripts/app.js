@@ -11,166 +11,167 @@ const notification = new NotificationService();
 
 // Initialize controllers
 const tabController = new TabController();
-const authController = new AuthController(notification);
-const browserController = new BrowserController(authController, notification);
-const cacheController = new CacheController(notification);
-const dashboardController = new DashboardController(authController, notification);
+let authController, browserController, cacheController, dashboardController;
+
+// Helper function to log to both console and main process
+function log(message) {
+  console.log(message);
+  if (window.api && window.api.log) {
+    window.api.log(message);
+  }
+}
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-  // Setup tab navigation
-  tabController.initialize();
+  log('DOM loaded, initializing application...');
   
-  // Initialize controllers
-  browserController.initialize();
-  cacheController.initialize();
-  dashboardController.initialize();
-  authController.initialize();
-  
-  // Setup URL input handling
-  const urlInput = document.getElementById('url-input');
-  const goButton = document.getElementById('go-button');
-  
-  goButton.addEventListener('click', () => {
-    const url = urlInput.value.trim();
-    if (url) {
-      browserController.loadUrl(url);
+  try {
+    // Initialize controllers
+    authController = new AuthController(notification);
+    browserController = new BrowserController(authController, notification);
+    cacheController = new CacheController(notification);
+    dashboardController = new DashboardController(authController, notification);
+    
+    // Setup tab navigation
+    tabController.initialize();
+    log('TabController initialized');
+    
+    // Initialize controllers
+    browserController.initialize();
+    log('BrowserController initialized');
+    
+    cacheController.initialize();
+    log('CacheController initialized');
+    
+    dashboardController.initialize();
+    log('DashboardController initialized');
+    
+    authController.initialize();
+    log('AuthController initialized');
+    
+    // Elements
+    const urlInput = document.getElementById('url-input');
+    const goButton = document.getElementById('go-button');
+    const backButton = document.getElementById('back-button');
+    const forwardButton = document.getElementById('forward-button');
+    const refreshButton = document.getElementById('refresh-button');
+    const settingsButton = document.getElementById('settings-button');
+    
+    // Setup URL input handling
+    goButton.addEventListener('click', () => {
+      const url = urlInput.value.trim();
+      if (url) {
+        log(`Go button clicked, loading URL: ${url}`);
+        browserController.loadUrl(url);
+      }
+    });
+    
+    urlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const url = urlInput.value.trim();
+        if (url) {
+          log(`Enter pressed in URL input, loading: ${url}`);
+          browserController.loadUrl(url);
+        }
+      }
+    });
+    
+    // Setup navigation buttons
+    backButton.addEventListener('click', () => {
+      log('Back button clicked');
+      browserController.goBack();
+    });
+    
+    forwardButton.addEventListener('click', () => {
+      log('Forward button clicked');
+      browserController.goForward();
+    });
+    
+    refreshButton.addEventListener('click', () => {
+      const icon = refreshButton.querySelector('.material-icons');
+      if (icon && icon.textContent === 'close') {
+        log('Stop button clicked');
+        browserController.stop();
+      } else {
+        log('Refresh button clicked');
+        browserController.refresh();
+      }
+    });
+    
+    // Setup settings button
+    settingsButton.addEventListener('click', () => {
+      // Open settings modal or panel
+      notification.show('Notice', 'Settings feature coming soon', 'info');
+    });
+    
+    // Listen for webview events to update UI
+    const webview = document.getElementById('web-view');
+    if (webview) {
+      webview.addEventListener('did-start-loading', () => {
+        log('Webview started loading');
+        const icon = refreshButton.querySelector('.material-icons');
+        if (icon) icon.textContent = 'close';
+      });
+      
+      webview.addEventListener('did-stop-loading', () => {
+        log('Webview stopped loading');
+        const icon = refreshButton.querySelector('.material-icons');
+        if (icon) icon.textContent = 'refresh';
+        updateNavigationButtons();
+      });
+      
+      webview.addEventListener('did-navigate', (event) => {
+        log(`Webview navigated to: ${event.url}`);
+        urlInput.value = event.url;
+        updateNavigationButtons();
+      });
+      
+      webview.addEventListener('did-navigate-in-page', () => {
+        log('Webview navigated in page');
+        updateNavigationButtons();
+      });
     } else {
-      notification.show('Error', 'Please enter a valid URL', 'error');
-    }
-  });
-  
-  urlInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      goButton.click();
-    }
-  });
-  
-  // Setup settings button
-  const settingsButton = document.getElementById('settings-button');
-  settingsButton.addEventListener('click', () => {
-    // Open settings modal or panel (to be implemented)
-    notification.show('Notice', 'Settings feature coming soon', 'info');
-  });
-  
-  // Listen for cache updates
-  window.api.on('cache:updated', (data) => {
-    cacheController.refreshCacheList();
-  });
-  
-  // Listen for dashboard updates
-  window.api.on('dashboard:data-update', (data) => {
-    dashboardController.handleDashboardUpdate(data);
-  });
-  
-  // Check if there's a stored session
-  authController.checkStoredSessions();
-  
-  // Elements
-  const webview = document.getElementById('web-view');
-  const backButton = document.getElementById('back-button');
-  const forwardButton = document.getElementById('forward-button');
-  const refreshButton = document.getElementById('refresh-button');
-  const browserTab = document.getElementById('browser-tab');
-  const cacheTab = document.getElementById('cache-tab');
-  const dashboardTab = document.getElementById('dashboard-tab');
-  const browserContent = document.getElementById('browser-content');
-  const cacheContent = document.getElementById('cache-content');
-  const dashboardContent = document.getElementById('dashboard-content');
-
-  // Tab navigation
-  browserTab.addEventListener('click', () => switchTab('browser'));
-  cacheTab.addEventListener('click', () => switchTab('cache'));
-  dashboardTab.addEventListener('click', () => switchTab('dashboard'));
-
-  function switchTab(tab) {
-    // Remove active class from all tabs and content
-    browserTab.classList.remove('active');
-    cacheTab.classList.remove('active');
-    dashboardTab.classList.remove('active');
-    browserContent.classList.remove('active');
-    cacheContent.classList.remove('active');
-    dashboardContent.classList.remove('active');
-    
-    // Add active class to selected tab and content
-    if (tab === 'browser') {
-      browserTab.classList.add('active');
-      browserContent.classList.add('active');
-    } else if (tab === 'cache') {
-      cacheTab.classList.add('active');
-      cacheContent.classList.add('active');
-    } else if (tab === 'dashboard') {
-      dashboardTab.classList.add('active');
-      dashboardContent.classList.add('active');
-    }
-  }
-
-  // Browser navigation functions
-  function loadURL(url) {
-    // Check if the URL has a protocol, add https:// if not
-    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
+      log('ERROR: Webview element not found!');
     }
     
-    if (url) {
-      webview.src = url;
-      urlInput.value = url;
+    // Listen for cache updates
+    if (window.api && window.api.on) {
+      window.api.on('cache:updated', (data) => {
+        log('Cache updated event received');
+        cacheController.refreshCacheList();
+      });
+      
+      // Listen for dashboard updates
+      window.api.on('dashboard:data-update', (data) => {
+        log('Dashboard data update received');
+        dashboardController.handleDashboardUpdate(data);
+      });
+    } else {
+      log('ERROR: API not available or on method not found');
     }
+    
+    // Update navigation button states
+    function updateNavigationButtons() {
+      if (webview) {
+        backButton.disabled = !webview.canGoBack();
+        forwardButton.disabled = !webview.canGoForward();
+      }
+    }
+    
+    // Check if there's a stored session
+    if (authController && typeof authController.checkStoredSessions === 'function') {
+      authController.checkStoredSessions();
+    }
+    
+    // Initialize webview with about:blank
+    if (webview && webview.src !== 'about:blank') {
+      webview.src = 'about:blank';
+    }
+    
+    log('Application initialization completed');
+  } catch (error) {
+    log(`ERROR initializing application: ${error.message}`);
+    console.error('Initialization error:', error);
   }
-
-  // Navigation button handlers
-  goButton.addEventListener('click', () => {
-    loadURL(urlInput.value);
-  });
-
-  urlInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      loadURL(urlInput.value);
-    }
-  });
-
-  backButton.addEventListener('click', () => {
-    if (webview.canGoBack()) {
-      webview.goBack();
-    }
-  });
-
-  forwardButton.addEventListener('click', () => {
-    if (webview.canGoForward()) {
-      webview.goForward();
-    }
-  });
-
-  refreshButton.addEventListener('click', () => {
-    webview.reload();
-  });
-
-  // Webview event listeners
-  webview.addEventListener('did-start-loading', () => {
-    refreshButton.querySelector('.material-icons').textContent = 'close';
-  });
-
-  webview.addEventListener('did-stop-loading', () => {
-    refreshButton.querySelector('.material-icons').textContent = 'refresh';
-    urlInput.value = webview.getURL();
-    updateNavigationButtons();
-  });
-
-  webview.addEventListener('did-navigate', (event) => {
-    urlInput.value = event.url;
-    updateNavigationButtons();
-  });
-
-  webview.addEventListener('did-navigate-in-page', () => {
-    updateNavigationButtons();
-  });
-
-  // Update navigation button states
-  function updateNavigationButtons() {
-    backButton.disabled = !webview.canGoBack();
-    forwardButton.disabled = !webview.canGoForward();
-  }
-
-  // Initialize with about:blank
-  webview.src = 'about:blank';
 });
+
