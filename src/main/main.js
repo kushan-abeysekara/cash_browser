@@ -145,7 +145,9 @@ ipcMain.handle('cache:clear', async () => {
   }
 });
 
-// Dashboard IPC handlers
+// Remove these dashboard IPC handlers since they're registered in DashboardService.initialize()
+// Dashboard IPC handlers commented out to avoid duplicate registrations
+/* 
 ipcMain.handle('dashboard:connect-realtime', async (event, dashboardUrl) => {
   try {
     return await dashboardService.connectToDashboard(dashboardUrl);
@@ -190,6 +192,7 @@ ipcMain.handle('dashboard:stop-polling', async (event, { url, endpoint }) => {
     return { success: false, error: error.message };
   }
 });
+*/
 
 // Add a new IPC handler for logging from the renderer process
 ipcMain.handle('log', (event, message) => {
