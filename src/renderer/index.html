@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash Browser</title>
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>Cash Browser</h1>
+      <div class="app-controls">
+        <button id="settings-button" class="icon-button" title="Settings">
+          <span class="material-icons">settings</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- URL Input Section -->
+      <section class="url-section">
+        <div class="url-input-container">
+          <input type="text" id="url-input" placeholder="Enter URL to cache..." />
+          <button id="go-button" class="primary-button">Go</button>
+        </div>
+      </section>
+
+      <!-- Tabs Section -->
+      <nav class="app-tabs">
+        <button id="browser-tab" class="tab-button active">Browser</button>
+        <button id="cache-tab" class="tab-button">Cache Manager</button>
+        <button id="dashboard-tab" class="tab-button">Dashboards</button>
+      </nav>
+
+      <!-- Content Sections -->
+      <section id="browser-content" class="content-section active">
+        <div id="browser-container">
+          <webview id="web-view" src="about:blank" autosize="on"></webview>
+        </div>
+      </section>
+
+      <section id="cache-content" class="content-section">
+        <div class="cache-controls">
+          <h2>Cached Resources</h2>
+          <button id="clear-cache" class="secondary-button">Clear Cache</button>
+        </div>
+        
+        <div id="cache-list" class="cache-list">
+          <!-- Cache items will be added here dynamically -->
+          <div class="loading-indicator">Loading cached resources...</div>
+        </div>
+      </section>
+
+      <section id="dashboard-content" class="content-section">
+        <div class="dashboard-header">
+          <h2>Dashboards</h2>
+          <button id="add-dashboard" class="primary-button">Add Dashboard</button>
+        </div>
+        
+        <div id="dashboards-list" class="dashboards-list">
+          <!-- Dashboard items will be added here dynamically -->
+          <div class="empty-state">No dashboards added yet. Click "Add Dashboard" to get started.</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Login Required</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required />
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required />
+          </div>
+          <div class="form-actions">
+            <button type="button" id="cancel-login" class="secondary-button">Cancel</button>
+            <button type="submit" class="primary-button">Login</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add Dashboard Modal -->
+    <div id="dashboard-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Add Dashboard</h2>
+        <form id="dashboard-form">
+          <div class="form-group">
+            <label for="dashboard-name">Dashboard Name</label>
+            <input type="text" id="dashboard-name" name="name" required />
+          </div>
+          <div class="form-group">
+            <label for="dashboard-url">Dashboard URL</label>
+            <input type="url" id="dashboard-url" name="url" required />
+          </div>
+          <div class="form-group">
+            <label for="refresh-interval">Refresh Interval (seconds)</label>
+            <input type="number" id="refresh-interval" name="interval" min="5" value="30" />
+          </div>
+          <div class="form-actions">
+            <button type="button" id="cancel-dashboard" class="secondary-button">Cancel</button>
+            <button type="submit" class="primary-button">Add Dashboard</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="./scripts/app.js" type="module"></script>
+</body>
+</html>
