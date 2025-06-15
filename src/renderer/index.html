@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cash Browser</title>
   <link rel="stylesheet" href="./styles/main.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
   <div class="app-container">
@@ -21,7 +22,18 @@
       <!-- URL Input Section -->
       <section class="url-section">
         <div class="url-input-container">
-          <input type="text" id="url-input" placeholder="Enter URL to cache..." />
+          <div class="navigation-controls">
+            <button id="back-button" class="nav-button" title="Go back" disabled>
+              <span class="material-icons">arrow_back</span>
+            </button>
+            <button id="forward-button" class="nav-button" title="Go forward" disabled>
+              <span class="material-icons">arrow_forward</span>
+            </button>
+            <button id="refresh-button" class="nav-button" title="Refresh">
+              <span class="material-icons">refresh</span>
+            </button>
+          </div>
+          <input type="text" id="url-input" placeholder="Enter URL to navigate..." />
           <button id="go-button" class="primary-button">Go</button>
         </div>
       </section>

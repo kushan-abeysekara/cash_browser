@@ -9,6 +9,7 @@
   --text-color: #334155;
   --text-light: #94a3b8;
   --border-color: #e2e8f0;
+  --header-color: #f1f5f9; /* New neutral header color */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -38,8 +39,8 @@ body {
 
 /* Header */
 .app-header {
-  background-color: var(--primary-color);
-  color: white;
+  background-color: var(--header-color);
+  color: var(--text-color);
   padding: 1rem;
   display: flex;
   justify-content: space-between;
@@ -55,6 +56,36 @@ body {
 .app-controls {
   display: flex;
   gap: 0.5rem;
+}
+
+/* Navigation controls */
+.navigation-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-right: 1rem;
+}
+
+.nav-button {
+  background-color: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 0.25rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.nav-button:hover {
+  background-color: var(--border-color);
+}
+
+.nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Main content area */
@@ -263,8 +294,8 @@ webview {
 
 .icon-button {
   background-color: transparent;
-  color: white;
-  border: none;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
   cursor: pointer;
   font-size: 1.25rem;
   display: flex;
@@ -272,12 +303,12 @@ webview {
   justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: 50%;
+  border-radius: 0.25rem;
   transition: background-color 0.2s ease;
 }
 
 .icon-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--border-color);
 }
 
 /* Empty state */
