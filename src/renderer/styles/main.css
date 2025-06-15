@@ -41,42 +41,40 @@ body {
 .app-header {
   background-color: var(--header-color);
   color: var(--text-color);
-  padding: 1rem;
+  padding: 0.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-shadow: var(--shadow);
+  height: 50px;
 }
 
-.app-header h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.app-controls {
+/* Browser controls layout */
+.browser-controls {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
+  width: 100%;
 }
 
 /* Navigation controls */
 .navigation-controls {
   display: flex;
-  gap: 0.5rem;
-  margin-right: 1rem;
+  gap: 2px;
 }
 
 .nav-button {
   background-color: transparent;
   color: var(--text-color);
-  border: 1px solid var(--border-color);
-  border-radius: 0.25rem;
-  width: 2.5rem;
-  height: 2.5rem;
+  border: none;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  border-radius: 4px;
 }
 
 .nav-button:hover {
@@ -88,6 +86,119 @@ body {
   cursor: not-allowed;
 }
 
+.nav-button .material-icons {
+  font-size: 18px;
+}
+
+/* URL input */
+#url-input {
+  flex: 1;
+  height: 32px;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 100px;
+}
+
+/* Go button */
+.go-button {
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.go-button:hover {
+  background-color: var(--border-color);
+}
+
+.go-button .material-icons {
+  font-size: 18px;
+}
+
+/* Menu container */
+.menu-container {
+  position: relative;
+}
+
+.menu-button {
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.menu-button:hover {
+  background-color: var(--border-color);
+}
+
+.menu-button .material-icons {
+  font-size: 18px;
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--surface-color);
+  border-radius: 4px;
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
+  width: 220px;
+  display: none;
+  overflow: hidden;
+  margin-top: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.menu-section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.menu-section:last-child {
+  border-bottom: none;
+}
+
+.menu-section-title {
+  padding: 5px 16px;
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background-color: var(--background-color);
+}
+
 /* Main content area */
 .app-main {
   flex: 1;
@@ -96,60 +207,11 @@ body {
   overflow: hidden;
 }
 
-/* URL input section */
-.url-section {
-  padding: 1rem;
-  background-color: var(--surface-color);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.url-input-container {
-  display: flex;
-  gap: 0.5rem;
-}
-
-#url-input {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 0.25rem;
-  font-size: 1rem;
-}
-
-/* Tabs */
-.app-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--surface-color);
-}
-
-.tab-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--secondary-color);
-  transition: all 0.2s ease;
-  border-bottom: 2px solid transparent;
-}
-
-.tab-button:hover {
-  color: var(--primary-color);
-}
-
-.tab-button.active {
-  color: var(--primary-color);
-  border-bottom: 2px solid var(--primary-color);
-}
-
 /* Content sections */
 .content-section {
   display: none;
   flex: 1;
   overflow: auto;
-  padding: 1rem;
 }
 
 .content-section.active {
@@ -166,8 +228,7 @@ body {
 
 webview {
   flex: 1;
-  border: 1px solid var(--border-color);
-  border-radius: 0.25rem;
+  border: none;
 }
 
 /* Cache section */
@@ -176,6 +237,7 @@ webview {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  padding: 1rem;
 }
 
 .cache-list {
@@ -223,12 +285,14 @@ webview {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  padding: 1rem;
 }
 
 .dashboards-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1rem;
+  padding: 0 1rem 1rem 1rem;
 }
 
 .dashboard-card {
@@ -290,25 +354,6 @@ webview {
 .secondary-button:hover {
   background-color: var(--border-color);
   color: var(--text-color);
-}
-
-.icon-button {
-  background-color: transparent;
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  font-size: 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.25rem;
-  transition: background-color 0.2s ease;
-}
-
-.icon-button:hover {
-  background-color: var(--border-color);
 }
 
 /* Empty state */
@@ -381,6 +426,11 @@ webview {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 2rem;
+}
+
+/* Show dropdown menu when open */
+.dropdown-menu.show {
+  display: block;
 }
 
 /* Notification */

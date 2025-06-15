@@ -82,6 +82,7 @@ class ResourceInterceptor {
   setEnabled(enabled) {
     this.enabled = enabled;
     console.log(`Resource interception ${enabled ? 'enabled' : 'disabled'}`);
+    return { success: true, enabled: this.enabled };
   }
   
   addInterceptedDomain(domain) {

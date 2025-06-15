@@ -5,13 +5,14 @@ import { CacheController } from './controllers/CacheController.js';
 import { DashboardController } from './controllers/DashboardController.js';
 import { AuthController } from './controllers/AuthController.js';
 import { NotificationService } from './services/NotificationService.js';
+import { ZoomController } from './controllers/ZoomController.js'; // New import
 
 // Initialize services
 const notification = new NotificationService();
 
 // Initialize controllers
 const tabController = new TabController();
-let authController, browserController, cacheController, dashboardController;
+let authController, browserController, cacheController, dashboardController, zoomController;
 
 // Helper function to log to both console and main process
 function log(message) {
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     browserController = new BrowserController(authController, notification);
     cacheController = new CacheController(notification);
     dashboardController = new DashboardController(authController, notification);
+    zoomController = new ZoomController(); // Initialize zoom controller
     
     // Setup tab navigation
     tabController.initialize();
@@ -49,13 +51,103 @@ document.addEventListener('DOMContentLoaded', () => {
     authController.initialize();
     log('AuthController initialized');
     
+    zoomController.initialize();
+    log('ZoomController initialized');
+    
     // Elements
     const urlInput = document.getElementById('url-input');
     const goButton = document.getElementById('go-button');
     const backButton = document.getElementById('back-button');
     const forwardButton = document.getElementById('forward-button');
     const refreshButton = document.getElementById('refresh-button');
-    const settingsButton = document.getElementById('settings-button');
+    const menuButton = document.getElementById('menu-button');
+    const dropdownMenu = document.getElementById('dropdown-menu');
+
+    // Menu item elements
+    const menuBrowser = document.getElementById('menu-browser');
+    const menuCache = document.getElementById('menu-cache');
+    const menuDashboard = document.getElementById('menu-dashboard');
+    const zoomIn = document.getElementById('zoom-in');
+    const zoomOut = document.getElementById('zoom-out');
+    const zoomReset = document.getElementById('zoom-reset');
+    const toggleInterception = document.getElementById('toggle-interception');
+    const clearCacheMenu = document.getElementById('clear-cache-menu');
+    
+    // Setup dropdown menu toggle
+    menuButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle('show');
+    });
+    
+    // Close the dropdown when clicking elsewhere
+    document.addEventListener('click', () => {
+      dropdownMenu.classList.remove('show');
+    });
+    
+    // Prevent clicks inside dropdown from closing it
+    dropdownMenu.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
+    // Setup menu item handlers
+    menuBrowser.addEventListener('click', () => {
+      tabController.activateTab('browser-tab');
+      dropdownMenu.classList.remove('show');
+    });
+    
+    menuCache.addEventListener('click', () => {
+      tabController.activateTab('cache-tab');
+      dropdownMenu.classList.remove('show');
+    });
+    
+    menuDashboard.addEventListener('click', () => {
+      tabController.activateTab('dashboard-tab');
+      dropdownMenu.classList.remove('show');
+    });
+    
+    // Zoom controls
+    zoomIn.addEventListener('click', () => {
+      zoomController.zoomIn();
+      dropdownMenu.classList.remove('show');
+    });
+    
+    zoomOut.addEventListener('click', () => {
+      zoomController.zoomOut();
+      dropdownMenu.classList.remove('show');
+    });
+    
+    zoomReset.addEventListener('click', () => {
+      zoomController.zoomReset();
+      dropdownMenu.classList.remove('show');
+    });
+    
+    // Toggle cache interception
+    toggleInterception.addEventListener('click', async () => {
+      if (window.api && window.api.cache) {
+        const isEnabled = toggleInterception.getAttribute('data-enabled') === 'true';
+        const newState = !isEnabled;
+        
+        const result = await window.api.cache.toggleInterception(newState);
+        if (result && result.success) {
+          toggleInterception.setAttribute('data-enabled', String(newState));
+          toggleInterception.textContent = newState 
+            ? 'Disable Cache Interception' 
+            : 'Enable Cache Interception';
+          notification.show(
+            'Cache Interception', 
+            `Cache interception ${newState ? 'enabled' : 'disabled'}`,
+            'info'
+          );
+        }
+      }
+      dropdownMenu.classList.remove('show');
+    });
+    
+    // Clear cache from menu
+    clearCacheMenu.addEventListener('click', async () => {
+      await cacheController.clearCache();
+      dropdownMenu.classList.remove('show');
+    });
     
     // Setup URL input handling
     goButton.addEventListener('click', () => {
@@ -96,12 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
         log('Refresh button clicked');
         browserController.refresh();
       }
-    });
-    
-    // Setup settings button
-    settingsButton.addEventListener('click', () => {
-      // Open settings modal or panel
-      notification.show('Notice', 'Settings feature coming soon', 'info');
     });
     
     // Listen for webview events to update UI
@@ -167,6 +253,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (webview && webview.src !== 'about:blank') {
       webview.src = 'about:blank';
     }
+    
+    // Initialize cache interception state
+    toggleInterception.setAttribute('data-enabled', 'false');
     
     log('Application initialization completed');
   } catch (error) {

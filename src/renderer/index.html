@@ -10,41 +10,50 @@
 <body>
   <div class="app-container">
     <header class="app-header">
-      <h1>Cash Browser</h1>
-      <div class="app-controls">
-        <button id="settings-button" class="icon-button" title="Settings">
-          <span class="material-icons">settings</span>
+      <div class="browser-controls">
+        <div class="navigation-controls">
+          <button id="back-button" class="nav-button" title="Go back" disabled>
+            <span class="material-icons">arrow_back</span>
+          </button>
+          <button id="forward-button" class="nav-button" title="Go forward" disabled>
+            <span class="material-icons">arrow_forward</span>
+          </button>
+          <button id="refresh-button" class="nav-button" title="Refresh">
+            <span class="material-icons">refresh</span>
+          </button>
+        </div>
+        <input type="text" id="url-input" placeholder="Enter URL..." />
+        <button id="go-button" class="go-button" title="Go">
+          <span class="material-icons">arrow_forward</span>
         </button>
+        <div class="menu-container">
+          <button id="menu-button" class="menu-button" title="Menu">
+            <span class="material-icons">more_vert</span>
+          </button>
+          <div id="dropdown-menu" class="dropdown-menu">
+            <div class="menu-section">
+              <div class="menu-section-title">Navigation</div>
+              <button id="menu-browser" class="menu-item">Browser</button>
+              <button id="menu-cache" class="menu-item">Cache Manager</button>
+              <button id="menu-dashboard" class="menu-item">Dashboards</button>
+            </div>
+            <div class="menu-section">
+              <div class="menu-section-title">Zoom</div>
+              <button id="zoom-in" class="menu-item">Zoom In</button>
+              <button id="zoom-out" class="menu-item">Zoom Out</button>
+              <button id="zoom-reset" class="menu-item">Reset Zoom (100%)</button>
+            </div>
+            <div class="menu-section">
+              <div class="menu-section-title">Options</div>
+              <button id="toggle-interception" class="menu-item">Toggle Cache Interception</button>
+              <button id="clear-cache-menu" class="menu-item">Clear Cache</button>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
     <main class="app-main">
-      <!-- URL Input Section -->
-      <section class="url-section">
-        <div class="url-input-container">
-          <div class="navigation-controls">
-            <button id="back-button" class="nav-button" title="Go back" disabled>
-              <span class="material-icons">arrow_back</span>
-            </button>
-            <button id="forward-button" class="nav-button" title="Go forward" disabled>
-              <span class="material-icons">arrow_forward</span>
-            </button>
-            <button id="refresh-button" class="nav-button" title="Refresh">
-              <span class="material-icons">refresh</span>
-            </button>
-          </div>
-          <input type="text" id="url-input" placeholder="Enter URL to navigate..." />
-          <button id="go-button" class="primary-button">Go</button>
-        </div>
-      </section>
-
-      <!-- Tabs Section -->
-      <nav class="app-tabs">
-        <button id="browser-tab" class="tab-button active">Browser</button>
-        <button id="cache-tab" class="tab-button">Cache Manager</button>
-        <button id="dashboard-tab" class="tab-button">Dashboards</button>
-      </nav>
-
       <!-- Content Sections -->
       <section id="browser-content" class="content-section active">
         <div id="browser-container">
