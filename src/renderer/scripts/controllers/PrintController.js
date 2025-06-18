@@ -4,259 +4,271 @@ export class PrintController {
     this.printModal = null;
     this.printForm = null;
     this.printersList = null;
-    this.paperSizeSelect = null;
-    this.webContentsId = null;
-    this.selectedPrinter = null;
-    this.printerCapabilities = {};
-    this.savedSettings = {};
-    this.customPaperSizes = ['Letter', 'A4', 'B5', 'Legal']; // Standard paper sizes we want to ensure are available
-    this.previousSettings = null;
     this.previewFrame = null;
-    this.previewDocument = null;
+    this.currentWebContentsId = null;
+    this.isInitialized = false;
   }
 
   async initialize() {
-    this.printModal = document.getElementById('print-modal');
-    this.printForm = document.getElementById('print-form');
-    this.printersList = document.getElementById('printers-list');
-    this.paperSizeSelect = document.getElementById('paper-size');
-    this.previewFrame = document.getElementById('print-preview-frame');
-    
-    // Add null checks before accessing elements
-    if (!this.printModal) {
-      console.error('Print modal element not found');
-      return;
-    }
-    
-    const cancelButton = document.getElementById('cancel-print');
-    const printButton = document.getElementById('print-button');
-    const closeButton = this.printModal.querySelector('.close-button');
-    const pageSelection = document.getElementsByName('pageSelection');
-    const pageRanges = document.getElementById('page-ranges');
-    
-    // Set up event listeners with null checks
-    if (cancelButton) {
-      cancelButton.addEventListener('click', () => {
-        this.closePrintModal();
-      });
-    }
-    
-    if (closeButton) {
-      closeButton.addEventListener('click', () => {
-        this.closePrintModal();
-      });
-    }
-    
-    if (printButton) {
-      printButton.addEventListener('click', () => {
-        this.executePrint();
-      });
-    }
-    
-    // Handle page range input toggle
-    if (pageSelection && pageSelection.length > 0) {
-      for (const radio of pageSelection) {
-        radio.addEventListener('change', (e) => {
-          if (pageRanges) {
-            pageRanges.disabled = e.target.value !== 'custom';
-          }
-        });
-      }
-    }
-    
-    // Handle printer selection change
-    if (this.printersList) {
-      this.printersList.addEventListener('change', async () => {
-        await this.onPrinterChanged();
-      });
-    }
-    
-    // Load saved print settings
-    await this.loadSavedSettings();
-    
-    // Fetch available printers
-    await this.loadPrinters();
-  }
-  
-  async loadSavedSettings() {
     try {
-      if (!window.api || !window.api.print) {
-        throw new Error('Print API not available');
+      this.printModal = document.getElementById('print-modal');
+      this.printForm = document.getElementById('print-form');
+      this.printersList = document.getElementById('printer-select');
+      this.previewFrame = document.getElementById('print-preview');
+      
+      // Check if we have the required elements
+      if (!this.printModal) {
+        console.error('Print modal element not found');
+        return;
       }
       
-      const result = await window.api.print.getSettings();
-      if (result && result.success) {
-        this.savedSettings = result.settings || {};
-        this.previousSettings = { ...this.savedSettings };
-        console.log('Loaded saved print settings:', this.savedSettings);
+      // Set up event listeners
+      this.setupEventListeners();
+      
+      // Initialize printers list
+      await this.loadPrinters();
+      
+      this.isInitialized = true;
+      console.log('PrintController initialized');
+    } catch (error) {
+      console.error('Error initializing PrintController:', error);
+    }
+  }
+  
+  setupEventListeners() {
+    try {
+      // Print form submission
+      if (this.printForm) {
+        this.printForm.addEventListener('submit', this.handlePrintSubmit.bind(this));
+      }
+      
+      // Close button
+      const closeButton = this.printModal?.querySelector('.close-button');
+      if (closeButton) {
+        closeButton.addEventListener('click', this.closePrintModal.bind(this));
+      }
+      
+      // Cancel button
+      const cancelButton = document.getElementById('cancel-print');
+      if (cancelButton) {
+        cancelButton.addEventListener('click', this.closePrintModal.bind(this));
+      }
+      
+      // PDF button
+      const pdfButton = document.getElementById('save-pdf');
+      if (pdfButton) {
+        pdfButton.addEventListener('click', this.handleSavePDF.bind(this));
       }
     } catch (error) {
-      console.error('Error loading print settings:', error);
+      console.error('Error setting up print event listeners:', error);
     }
   }
   
   async loadPrinters() {
     try {
-      if (!window.api || !window.api.print) {
-        throw new Error('Print API not available');
-      }
+      if (!window.api || !window.api.print || !this.printersList) return;
       
-      const result = await window.api.print.getPrinters();
-      
-      if (result && result.success && this.printersList) {
+      const response = await window.api.print.getPrinters();
+      if (response.success && Array.isArray(response.printers)) {
         // Clear existing options
         this.printersList.innerHTML = '';
         
-        // Add printers to dropdown
-        result.printers.forEach(printer => {
+        // Add default option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = 'default';
+        defaultOption.textContent = 'Default Printer';
+        this.printersList.appendChild(defaultOption);
+        
+        // Add available printers
+        response.printers.forEach(printer => {
           const option = document.createElement('option');
           option.value = printer.name;
           option.textContent = printer.name;
-          option.selected = 
-            printer.isDefault || 
-            (this.savedSettings.printer === printer.name);
-          
+          if (printer.isDefault) {
+            option.selected = true;
+          }
           this.printersList.appendChild(option);
         });
-        
-        // Store capabilities for each printer
-        this.printerCapabilities = result.capabilities || {};
-        
-        // Handle initial printer selection
-        await this.onPrinterChanged();
+      } else {
+        console.error('Failed to load printers:', response.error);
       }
     } catch (error) {
       console.error('Error loading printers:', error);
-      this.notification.show('Print Error', 'Failed to load printers', 'error');
     }
   }
   
-  async onPrinterChanged() {
-    if (!this.printersList || !this.paperSizeSelect) return;
-    
-    const selectedPrinter = this.printersList.value;
-    this.selectedPrinter = selectedPrinter;
-    
-    // Get capabilities for this printer
-    const capabilities = this.printerCapabilities[selectedPrinter] || {};
-    
-    // Get paper sizes
-    const paperSizes = capabilities.paperSizes || [];
-    
-    // Clear paper size dropdown
-    this.paperSizeSelect.innerHTML = '';
-    
-    // Track added paper sizes to avoid duplicates
-    const addedPaperSizes = new Set();
-    
-    // First add printer's available paper sizes
-    if (paperSizes.length > 0) {
-      for (const paperSize of paperSizes) {
-        const option = document.createElement('option');
-        option.value = paperSize.name;
-        option.textContent = paperSize.name;
-        this.paperSizeSelect.appendChild(option);
-        addedPaperSizes.add(paperSize.name.toLowerCase());
-      }
-    }
-    
-    // Then add our custom paper sizes if they're not already present
-    for (const customSize of this.customPaperSizes) {
-      if (!addedPaperSizes.has(customSize.toLowerCase())) {
-        const option = document.createElement('option');
-        option.value = customSize;
-        option.textContent = customSize;
-        this.paperSizeSelect.appendChild(option);
-      }
-    }
-    
-    // Set selected paper size based on saved settings or printer default
-    const savedPaperSize = this.savedSettings.paperSize;
-    const printerDefaultSize = capabilities.defaultPaperSize;
-    
-    if (savedPaperSize && this.findOption(this.paperSizeSelect, savedPaperSize)) {
-      this.paperSizeSelect.value = savedPaperSize;
-    } else if (printerDefaultSize && this.findOption(this.paperSizeSelect, printerDefaultSize)) {
-      this.paperSizeSelect.value = printerDefaultSize;
-    }
-    
-    // Apply other saved settings if available
-    this.applyPrintSettings();
-  }
-  
-  findOption(selectElement, value) {
-    for (const option of selectElement.options) {
-      if (option.value === value) {
-        return true;
-      }
-    }
-    return false;
-  }
-  
-  applyPrintSettings() {
-    if (!this.printForm) return;
-    
-    // Apply saved settings to form elements
-    const settings = this.savedSettings;
-    
-    // Copies
-    const copiesInput = document.getElementById('copies');
-    if (copiesInput && settings.copies) {
-      copiesInput.value = settings.copies;
-    }
-    
-    // Collate
-    const collateCheckbox = document.getElementById('collate');
-    if (collateCheckbox && settings.collate !== undefined) {
-      collateCheckbox.checked = settings.collate;
-    }
-    
-    // Page selection
-    if (settings.pageSelection) {
-      const pageSelectionRadio = document.querySelector(`input[name="pageSelection"][value="${settings.pageSelection}"]`);
-      if (pageSelectionRadio) {
-        pageSelectionRadio.checked = true;
+  async showPrintModal(webContentsId) {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
       }
       
-      // Page ranges
-      const pageRangesInput = document.getElementById('page-ranges');
-      if (pageRangesInput && settings.pageRanges) {
-        pageRangesInput.value = settings.pageRanges;
-        pageRangesInput.disabled = settings.pageSelection !== 'custom';
+      if (!this.printModal) {
+        console.error('Print modal not initialized');
+        return;
       }
-    }
-    
-    // Orientation
-    if (settings.orientation) {
-      const orientationRadio = document.querySelector(`input[name="orientation"][value="${settings.orientation}"]`);
-      if (orientationRadio) {
-        orientationRadio.checked = true;
+      
+      // Store current webContentsId
+      this.currentWebContentsId = webContentsId;
+      
+      // Reset the form
+      if (this.printForm) {
+        this.printForm.reset();
       }
-    }
-    
-    // Color
-    if (settings.color) {
-      const colorRadio = document.querySelector(`input[name="color"][value="${settings.color}"]`);
-      if (colorRadio) {
-        colorRadio.checked = true;
-      }
-    }
-    
-    // Margins
-    const marginsSelect = document.getElementById('margins');
-    if (marginsSelect && settings.margins !== undefined) {
-      marginsSelect.value = settings.margins;
+      
+      // Load print preview
+      await this.loadPrintPreview(webContentsId);
+      
+      // Show the modal
+      this.printModal.style.display = 'flex';
+    } catch (error) {
+      console.error('Error showing print modal:', error);
+      this.notification?.show('Print Error', `Failed to open print dialog: ${error.message}`, 'error');
     }
   }
   
+  closePrintModal() {
+    try {
+      if (this.printModal) {
+        this.printModal.style.display = 'none';
+      }
+      
+      // Clear preview
+      if (this.previewFrame) {
+        this.previewFrame.src = 'about:blank';
+      }
+      
+      this.currentWebContentsId = null;
+    } catch (error) {
+      console.error('Error closing print modal:', error);
+    }
+  }
+  
+  async loadPrintPreview(webContentsId) {
+    try {
+      if (!webContentsId || !this.previewFrame) return;
+      
+      // Show loading state
+      this.previewFrame.src = 'about:blank';
+      
+      // Generate PDF preview
+      if (window.api && window.api.print) {
+        const response = await window.api.print.generatePreview(webContentsId);
+        
+        if (response.success && response.previewUrl) {
+          this.previewFrame.src = response.previewUrl;
+        } else {
+          console.error('Failed to generate print preview:', response.error);
+          this.notification?.show('Print Preview', `Failed to generate preview: ${response.error}`, 'error');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading print preview:', error);
+      this.notification?.show('Print Preview', `Failed to load preview: ${error.message}`, 'error');
+    }
+  }
+  
+  async handlePrintSubmit(event) {
+    try {
+      event.preventDefault();
+      
+      if (!this.currentWebContentsId) {
+        throw new Error('No web contents to print');
+      }
+      
+      const formData = new FormData(this.printForm);
+      const printOptions = {
+        printer: formData.get('printer'),
+        copies: parseInt(formData.get('copies'), 10) || 1,
+        color: formData.get('color') === 'color',
+        landscape: formData.get('orientation') === 'landscape',
+        scale: parseFloat(formData.get('scale')) || 1.0
+      };
+      
+      if (window.api && window.api.print) {
+        const response = await window.api.print.execute({
+          webContentsId: this.currentWebContentsId,
+          options: printOptions
+        });
+        
+        if (response.success) {
+          this.notification?.show('Print', 'Sent to printer successfully', 'success');
+          this.closePrintModal();
+        } else {
+          this.notification?.show('Print Error', `Failed to print: ${response.error}`, 'error');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling print submit:', error);
+      this.notification?.show('Print Error', `Failed to print: ${error.message}`, 'error');
+    }
+  }
+  
+  async handleSavePDF() {
+    try {
+      if (!this.currentWebContentsId) {
+        throw new Error('No web contents to save as PDF');
+      }
+      
+      const formData = new FormData(this.printForm);
+      const pdfOptions = {
+        landscape: formData.get('orientation') === 'landscape',
+        scale: parseFloat(formData.get('scale')) || 1.0,
+        pageSize: formData.get('paper-size') || 'A4'
+      };
+      
+      if (window.api && window.api.print) {
+        this.notification?.show('PDF Export', 'Generating PDF...', 'info');
+        
+        const response = await window.api.print.toPdf({
+          webContentsId: this.currentWebContentsId,
+          options: pdfOptions
+        });
+        
+        if (response.success) {
+          this.notification?.show('PDF Export', `PDF saved to: ${response.pdfPath}`, 'success');
+          this.closePrintModal();
+          
+          // Open the PDF file
+          if (window.api.shell) {
+            window.api.shell.openPath(response.pdfPath);
+          }
+        } else {
+          this.notification?.show('PDF Error', `Failed to generate PDF: ${response.error}`, 'error');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving as PDF:', error);
+      this.notification?.show('PDF Error', `Failed to save as PDF: ${error.message}`, 'error');
+    }
+  }
+}
+  
   showPrintModal(webContentsId) {
+    console.log('Showing print modal for webContentsId:', webContentsId);
     this.webContentsId = webContentsId;
+    this.printPreviewLoaded = false;
     
     if (this.printModal) {
       this.printModal.style.display = 'flex';
       
-      // Generate preview - capture this async operation
-      setTimeout(() => this.updatePreview(), 300);
+      // Clear any existing preview content
+      if (this.previewFrame) {
+        try {
+          this.previewFrame.srcdoc = '<html><body><div style="display:flex;align-items:center;justify-content:center;height:100%;"><p>Loading preview...</p></div></body></html>';
+        } catch (error) {
+          console.error('Error clearing preview:', error);
+        }
+      }
+      
+      // Generate preview with a slight delay to ensure modal is visible
+      setTimeout(() => {
+        console.log('Updating print preview');
+        this.updatePreview();
+      }, 300);
+    } else {
+      console.error('Print modal element not found');
+      this.useNativePrint();
     }
   }
   
@@ -277,19 +289,28 @@ export class PrintController {
   
   async updatePreview() {
     try {
-      if (!this.previewFrame || !this.webContentsId) {
-        console.error('Preview frame or webContentsId not available');
+      if (!this.previewFrame) {
+        console.error('Preview frame not available');
         return;
       }
       
-      // Get the webview element with current content
-      const webview = document.getElementById('web-view');
-      if (!webview) {
-        console.error('Webview element not found');
+      if (!this.webContentsId) {
+        console.error('WebContentsId not available for preview');
         return;
       }
       
-      // Capture the current webview content using the print to PDF API
+      console.log('Capturing preview for webContentsId:', this.webContentsId);
+      
+      // Show loading state
+      this.previewFrame.srcdoc = `
+        <html><body>
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;">
+            <p>Loading preview...</p>
+          </div>
+        </body></html>
+      `;
+      
+      // Capture the current webview content
       const result = await window.api.print.capturePreview({
         webContentsId: this.webContentsId,
         format: 'html'
@@ -297,8 +318,17 @@ export class PrintController {
       
       if (!result || !result.success) {
         console.error('Failed to capture preview:', result?.error || 'Unknown error');
+        this.previewFrame.srcdoc = `
+          <html><body>
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:red;">
+              <p>Error loading preview: ${result?.error || 'Unknown error'}</p>
+            </div>
+          </body></html>
+        `;
         return;
       }
+      
+      console.log('Preview content captured successfully');
       
       // Generate a complete HTML document with necessary styling
       const previewHtml = `
@@ -338,6 +368,17 @@ export class PrintController {
               padding: 10px;
             }
           </style>
+          <script>
+            // Let parent know we've loaded
+            window.onload = function() {
+              try {
+                window.parent.postMessage({ type: 'preview-loaded' }, '*');
+                console.log('Preview loaded notification sent');
+              } catch (e) {
+                console.error('Error notifying parent window:', e);
+              }
+            };
+          </script>
         </head>
         <body>
           <div class="print-content">${result.content}</div>
@@ -351,6 +392,8 @@ export class PrintController {
       // Set up the iframe onload handler to access document
       this.previewFrame.onload = () => {
         try {
+          console.log('Preview iframe loaded');
+          this.printPreviewLoaded = true;
           this.previewDocument = this.previewFrame.contentDocument;
           
           // Apply orientation
@@ -367,6 +410,17 @@ export class PrintController {
     } catch (error) {
       console.error('Error updating preview:', error);
       this.notification.show('Preview Error', 'Failed to generate print preview', 'error');
+      
+      // Show error in preview frame
+      if (this.previewFrame) {
+        this.previewFrame.srcdoc = `
+          <html><body>
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:red;">
+              <p>Error: ${error.message || 'Failed to generate print preview'}</p>
+            </div>
+          </body></html>
+        `;
+      }
     }
   }
   
@@ -411,9 +465,19 @@ export class PrintController {
   
   async executePrint() {
     try {
-      if (!window.api || !window.api.print || !this.printForm || !this.webContentsId) {
-        throw new Error('Print API not available or missing required data');
+      if (!window.api || !window.api.print) {
+        throw new Error('Print API not available');
       }
+      
+      if (!this.printForm) {
+        throw new Error('Print form not found');
+      }
+      
+      if (!this.webContentsId) {
+        throw new Error('No web content available for printing');
+      }
+      
+      console.log('Executing print for webContentsId:', this.webContentsId);
       
       // Save current settings
       await this.savePrintSettings();
@@ -434,17 +498,123 @@ export class PrintController {
         margins: parseInt(formData.get('margins'), 10)
       };
       
+      console.log('Print options:', printOptions);
+      
+      // Show printing notification
+      this.notification.show('Print', 'Sending to printer...', 'info');
+      
       const result = await window.api.print.print(printOptions);
       
       if (result && result.success) {
         this.notification.show('Print', 'Document sent to printer', 'success');
         this.closePrintModal();
       } else {
-        this.notification.show('Print Error', result.error || 'Failed to print', 'error');
+        console.error('Print error:', result?.error);
+        this.notification.show('Print Error', result?.error || 'Failed to print', 'error');
       }
     } catch (error) {
       console.error('Print error:', error);
       this.notification.show('Print Error', error.message || 'Failed to print', 'error');
     }
+  }
+  
+  useNativePrint() {
+    try {
+      if (window.print) {
+        window.print();
+      }
+    } catch (error) {
+      console.error('Native print error:', error);
+    }
+  }
+  
+  updatePrintPreview() {
+    try {
+      // Get current options from the form
+      const options = this.getCurrentPrintOptions();
+      
+      // Disable custom page ranges if "All pages" is selected
+      const pageRangesInput = document.getElementById('page-ranges');
+      if (pageRangesInput) {
+        const isCustomPages = document.getElementById('custom-pages').checked;
+        pageRangesInput.disabled = !isCustomPages;
+      }
+      
+      // Request a preview with current settings
+      this.requestPreview(options);
+    } catch (error) {
+      console.error('Error updating print preview:', error);
+      this.notification.show('Print Error', 'Failed to update preview: ' + error.message, 'error');
+    }
+  }
+  
+  async requestPreview(options) {
+    try {
+      if (!options) {
+        options = this.getCurrentPrintOptions();
+      }
+      
+      // Get the webContentsId
+      const webContentsId = this.currentWebContentsId;
+      if (!webContentsId) {
+        throw new Error('No active web content to print');
+      }
+      
+      options.webContentsId = webContentsId;
+      
+      // Show loading indicator
+      this.setPreviewLoading(true);
+      
+      // Request preview from main process
+      const result = await window.api.print.capturePreview(options);
+      
+      if (result.success) {
+        this.updatePreviewImage(result.path);
+      } else {
+        throw new Error(result.error || 'Failed to generate preview');
+      }
+    } catch (error) {
+      console.error('Preview error:', error);
+      this.notification.show('Preview Error', error.message, 'error');
+    } finally {
+      this.setPreviewLoading(false);
+    }
+  }
+  
+  setPreviewLoading(isLoading) {
+    try {
+      const previewContainer = document.getElementById('print-preview-container');
+      const loadingIndicator = document.getElementById('preview-loading');
+      
+      if (previewContainer && loadingIndicator) {
+        loadingIndicator.style.display = isLoading ? 'flex' : 'none';
+        if (isLoading) {
+          previewContainer.classList.add('loading');
+        } else {
+          previewContainer.classList.remove('loading');
+        }
+      }
+    } catch (error) {
+      console.error('Error setting preview loading state:', error);
+    }
+  }
+}
+
+async capturePreview(webContentsId, format = 'html') {
+  try {
+    const response = await window.ipc.invoke('print:capture-preview', {
+      webContentsId,
+      format
+    });
+    
+    if (!response.success) {
+      console.error('Failed to capture print preview:', response.error);
+      return null;
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Error capturing print preview:', error);
+    return null;
   }
 }

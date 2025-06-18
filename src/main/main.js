@@ -6,7 +6,7 @@ const AuthService = require('../services/AuthService');
 const ResourceInterceptor = require('../services/ResourceInterceptor');
 const DashboardService = require('../services/DashboardService');
 const SettingsService = require('../services/SettingsService');
-const PrintService = require('../services/PrintService'); // Add this line
+const PrintService = require('../services/PrintService');
 
 // Services initialization
 const cacheManager = new CacheManager();
@@ -14,7 +14,7 @@ const authService = new AuthService();
 const resourceInterceptor = new ResourceInterceptor(cacheManager);
 const dashboardService = new DashboardService(authService);
 const settingsService = new SettingsService();
-const printService = new PrintService(); // Add this line
+const printService = new PrintService();
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -61,8 +61,10 @@ async function createWindow() {
 // initialization and is ready to create browser windows.
 app.whenReady().then(async () => {
   await cacheManager.initialize();
+  
+  // Initialize services
   settingsService.initialize();
-  printService.initialize(); // Add this line
+  printService.initialize();
   
   // Initially disable resource interception for regular browsing
   resourceInterceptor.setEnabled(false);
@@ -86,7 +88,7 @@ app.on('window-all-closed', () => {
 });
 
 // IPC handlers for renderer process communication
-ipcMain.handle('cache:fetch-url', async (event, url) => {
+ipcMain.handle('cache:fetch-url', async (_event, url) => {
   try {
     return await cacheManager.fetchAndCache(url);
   } catch (error) {
@@ -105,7 +107,7 @@ ipcMain.handle('cache:status', async () => {
   }
 });
 
-ipcMain.handle('cache:toggle-interception', async (event, enabled) => {
+ipcMain.handle('cache:toggle-interception', async (_event, enabled) => {
   try {
     resourceInterceptor.setEnabled(enabled);
     return { success: true, enabled };
@@ -115,7 +117,7 @@ ipcMain.handle('cache:toggle-interception', async (event, enabled) => {
   }
 });
 
-ipcMain.handle('auth:login', async (event, credentials) => {
+ipcMain.handle('auth:login', async (_event, credentials) => {
   try {
     return await authService.login(credentials);
   } catch (error) {
@@ -124,7 +126,7 @@ ipcMain.handle('auth:login', async (event, credentials) => {
   }
 });
 
-ipcMain.handle('auth:check-session', async (event, url) => {
+ipcMain.handle('auth:check-session', async (_event, url) => {
   try {
     return await authService.checkSession(url || '');
   } catch (error) {
@@ -151,28 +153,8 @@ ipcMain.handle('cache:clear', async () => {
   }
 });
 
-// Remove these dashboard IPC handlers since they're registered in DashboardService.initialize()
-// Dashboard IPC handlers commented out to avoid duplicate registrations
-/* 
-ipcMain.handle('dashboard:connect-realtime', async (event, dashboardUrl) => {
-  try {
-    return await dashboardService.connectToDashboard(dashboardUrl);
-  } catch (error) {
-    console.error('Dashboard connection error:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('dashboard:disconnect-realtime', async (event, dashboardUrl) => {
-  try {
-    return await dashboardService.disconnectFromDashboard(dashboardUrl);
-  } catch (error) {
-    console.error('Dashboard disconnect error:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('dashboard:fetch-data', async (event, { url, endpoint }) => {
+// Dashboard API handlers
+ipcMain.handle('dashboard:fetch-data', async (_event, { url, endpoint }) => {
   try {
     return await dashboardService.fetchDashboardData(url, endpoint);
   } catch (error) {
@@ -181,7 +163,7 @@ ipcMain.handle('dashboard:fetch-data', async (event, { url, endpoint }) => {
   }
 });
 
-ipcMain.handle('dashboard:start-polling', async (event, { url, endpoint, interval }) => {
+ipcMain.handle('dashboard:start-polling', async (_event, { url, endpoint, interval }) => {
   try {
     return await dashboardService.startPolling(url, endpoint, interval);
   } catch (error) {
@@ -190,7 +172,7 @@ ipcMain.handle('dashboard:start-polling', async (event, { url, endpoint, interva
   }
 });
 
-ipcMain.handle('dashboard:stop-polling', async (event, { url, endpoint }) => {
+ipcMain.handle('dashboard:stop-polling', async (_event, { url, endpoint }) => {
   try {
     return await dashboardService.stopPolling(url, endpoint);
   } catch (error) {
@@ -198,7 +180,6 @@ ipcMain.handle('dashboard:stop-polling', async (event, { url, endpoint }) => {
     return { success: false, error: error.message };
   }
 });
-*/
 
 // Add settings IPC handlers
 ipcMain.handle('settings:get-all', async () => {
@@ -213,7 +194,7 @@ ipcMain.handle('settings:get-all', async () => {
   }
 });
 
-ipcMain.handle('settings:get', async (event, key) => {
+ipcMain.handle('settings:get', async (_event, key) => {
   try {
     return { 
       success: true, 
@@ -225,7 +206,7 @@ ipcMain.handle('settings:get', async (event, key) => {
   }
 });
 
-ipcMain.handle('settings:update', async (event, { key, value }) => {
+ipcMain.handle('settings:update', async (_event, { key, value }) => {
   try {
     const settings = settingsService.updateSetting(key, value);
     return { success: true, settings };
@@ -235,7 +216,7 @@ ipcMain.handle('settings:update', async (event, { key, value }) => {
   }
 });
 
-ipcMain.handle('settings:update-all', async (event, settings) => {
+ipcMain.handle('settings:update-all', async (_event, settings) => {
   try {
     const updatedSettings = settingsService.updateSettings(settings);
     return { success: true, settings: updatedSettings };
@@ -258,64 +239,99 @@ ipcMain.handle('settings:get-default-url', async () => {
   }
 });
 
-// Print related IPC handlers
-ipcMain.handle('print:get-printers', async () => {
+// Register webview for print handling
+ipcMain.handle('register-webview-for-print', async (event, webContentsId) => {
   try {
-    return await printService.getPrinters();
+    console.log('Registering webview for print capture:', webContentsId);
+    
+    const allWebContents = require('electron').webContents.getAllWebContents();
+    const webContents = allWebContents.find(wc => wc.id === webContentsId);
+    
+    if (!webContents) {
+      console.error('WebContents not found for ID:', webContentsId);
+      return { success: false, error: 'WebContents not found' };
+    }
+    
+    // Block print dialog
+    webContents.on('print', (printEvent) => {
+      printEvent.preventDefault();
+      console.log('Print event intercepted from webContentsId:', webContentsId);
+      
+      // Send message to renderer to show custom print dialog
+      event.sender.send('show-custom-print', webContentsId);
+    });
+    
+    // Also handle Ctrl+P
+    webContents.on('before-input-event', (inputEvent, input) => {
+      if (input.control && input.key.toLowerCase() === 'p' && input.type === 'keyDown') {
+        inputEvent.preventDefault();
+        console.log('Ctrl+P intercepted from webContentsId:', webContentsId);
+        
+        // Send message to renderer to show custom print dialog
+        event.sender.send('show-custom-print', webContentsId);
+      }
+    });
+    
+    return { success: true };
   } catch (error) {
-    console.error('Error getting printers:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('print:execute', async (event, options) => {
-  try {
-    return await printService.print(options);
-  } catch (error) {
-    console.error('Error printing:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('print:generate-pdf', async (event, options) => {
-  try {
-    return await printService.printToPDF(options);
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('print:get-settings', async () => {
-  try {
-    return printService.getSettings();
-  } catch (error) {
-    console.error('Error getting print settings:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('print:save-settings', async (event, settings) => {
-  try {
-    return printService.saveSettings(settings);
-  } catch (error) {
-    console.error('Error saving print settings:', error);
+    console.error('Error registering webview for print:', error);
     return { success: false, error: error.message };
   }
 });
 
 // Add a new IPC handler for logging from the renderer process
-ipcMain.handle('log', (event, message) => {
+ipcMain.handle('log', (_event, message) => {
   console.log('Renderer log:', message);
   return { success: true };
 });
 
-// Add this new handler with the other print handlers
-ipcMain.handle('print:capture-preview', async (event, options) => {
-  try {
-    return await printService.capturePreview(options);
-  } catch (error) {
-    console.error('Error capturing print preview:', error);
-    return { success: false, error: error.message };
+// Dashboard WebSocket connection handler (if needed)
+function setupDashboardSocket(dashboardUrl) {
+  // This would be implemented if WebSocket functionality is needed
+  // socket.on('dashboardUpdate', (data) => {
+  //   if (mainWindow) {
+  //     mainWindow.webContents.send('dashboard:data-update', { url: dashboardUrl, data });
+  //   }
+  // });
+}
+// ...existing code...
+
+      const intervalId = setInterval(async () => {
+        const data = await this.fetchDashboardData(url, endpoint);
+        if (data.success) {
+          // Send data to renderer
+          if (mainWindow) {
+            mainWindow.webContents.send('dashboard:data-update', { 
+              url, 
+              endpoint, 
+              data: data.data,
+              polled: true
+            });
+          }
+        }
+      }, interval);
+    } catch (error) {
+      console.error('Error starting dashboard polling:', error);
+      return { success: false, error: error.message };
+    }
   }
-});
+  
+  async stopPolling(url, endpoint) {
+    try {
+      const key = this.getPollingKey(url, endpoint);
+      const intervalId = this.pollingIntervals[key];
+      
+      if (intervalId) {
+        clearInterval(intervalId);
+        delete this.pollingIntervals[key];
+        
+        console.log(`Stopped polling for ${url}${endpoint ? ' ' + endpoint : ''}`);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error stopping dashboard polling:', error);
+      return { success: false, error: error.message };
+    }
+  }
+}

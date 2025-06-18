@@ -3,25 +3,39 @@ export class TabController {
     this.tabs = [
       { id: 'browser-tab', contentId: 'browser-content' },
       { id: 'cache-tab', contentId: 'cache-content' },
-      { id: 'dashboard-tab', contentId: 'dashboard-content' }
+      { id: 'dashboard-tab', contentId: 'dashboard-content' },
+      { id: 'settings-tab', contentId: 'settings-content' } // Add settings tab if needed
     ];
     this.activeTab = 'browser-tab';
+    this._initialized = false;
   }
 
   initialize() {
+    if (this._initialized) return;
+    
     this.tabs.forEach(tab => {
       const tabElement = document.getElementById(tab.id);
-      if (tabElement) { // Add null check
-        tabElement.addEventListener('click', () => {
+      if (tabElement) {
+        // Use more robust click handling
+        tabElement.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          console.log(`Tab clicked: ${tab.id}`);
           this.activateTab(tab.id);
         });
       } else {
         console.error(`Tab element with id "${tab.id}" not found`);
       }
     });
+    
+    // Activate the initial tab
+    this.activateTab(this.activeTab);
+    this._initialized = true;
   }
 
   activateTab(tabId) {
+    console.log(`Activating tab: ${tabId}`);
+    
     // Deactivate all tabs with null checks
     this.tabs.forEach(tab => {
       const tabElement = document.getElementById(tab.id);
@@ -56,8 +70,16 @@ export class TabController {
     this.activeTab = tabId;
 
     // Dispatch event for other components to react
-    const event = new CustomEvent('tabchanged', { detail: { tabId, contentId } });
-    document.dispatchEvent(event);
+    try {
+      const event = new CustomEvent('tabchanged', { 
+        detail: { tabId, contentId },
+        bubbles: true
+      });
+      document.dispatchEvent(event);
+      console.log(`Tab change event dispatched for ${tabId}`);
+    } catch (error) {
+      console.error('Error dispatching tab change event:', error);
+    }
   }
 
   getActiveTab() {

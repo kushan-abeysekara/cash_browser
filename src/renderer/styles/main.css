@@ -126,6 +126,7 @@ body {
 /* Menu container */
 .menu-container {
   position: relative;
+  z-index: 1000;
 }
 
 .menu-button {
@@ -139,6 +140,7 @@ body {
   justify-content: center;
   cursor: pointer;
   border-radius: 4px;
+  position: relative;
 }
 
 .menu-button:hover {
@@ -157,46 +159,21 @@ body {
   background-color: var(--surface-color);
   border-radius: 4px;
   box-shadow: var(--shadow-md);
-  z-index: 1000;
+  z-index: 1001;
   width: 220px;
   display: none;
   overflow: hidden;
   margin-top: 4px;
   border: 1px solid var(--border-color);
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.menu-section {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.menu-section:last-child {
-  border-bottom: none;
-}
-
-.menu-section-title {
-  padding: 5px 16px;
-  color: var(--text-light);
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.menu-item {
+.dropdown-menu.show {
   display: block;
-  width: 100%;
-  text-align: left;
-  padding: 8px 16px;
-  background: none;
-  border: none;
-  font-size: 14px;
-  color: var(--text-color);
-  cursor: pointer;
-}
-
-.menu-item:hover {
-  background-color: var(--background-color);
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Main content area */
@@ -421,7 +398,7 @@ webview {
   font-size: 1rem;
 }
 
-/* Form help text */
+/* Add these styles for toggle switches and other settings elements */
 .form-help {
   font-size: 0.75rem;
   color: var(--text-light);
@@ -474,15 +451,38 @@ input:checked + .toggle-label:before {
   transform: translateX(26px);
 }
 
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 2rem;
+/* Settings form additions */
+.full-width {
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* Show dropdown menu when open */
-.dropdown-menu.show {
+.small-input {
+  width: 60px;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.checkbox-group input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.radio-group input[type="radio"] {
+  margin-right: 6px;
+}
+
+/* Fix dropdown menu issue */
+#dropdown-menu.show {
   display: block;
 }
 
@@ -526,68 +526,89 @@ input:checked + .toggle-label:before {
 
 /* Print Modal Styles */
 .print-modal {
-  width: 100%;
-  max-width: 900px;
+  width: 90%;
+  max-width: 1000px;
   max-height: 90vh;
-  overflow-y: auto;
 }
 
 .print-layout {
   display: flex;
+  flex-direction: row;
   gap: 20px;
-  height: 60vh;
+  height: calc(100vh - 200px);
+  max-height: 700px;
 }
 
 .print-preview-container {
-  flex: 3;
+  flex: 2;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   overflow: hidden;
-  background-color: white;
-  position: relative;
 }
 
-.print-preview-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(255, 255, 255, 0.8);
-  z-index: 5;
-}
-
-.print-preview-error {
-  padding: 20px;
-  color: var(--error-color);
-  text-align: center;
-}
-
-/* Print preview paper simulation */
-.print-preview-page {
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-  margin: 20px;
-  background-color: white;
-  position: relative;
+.print-preview-header {
+  padding: 8px 16px;
+  background-color: var(--header-color);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 500;
 }
 
 .print-preview {
   flex: 1;
-  width: 100%;
   border: none;
-  background-color: var(--background-color);
-  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
-}
-  display: flex;
-  align-items: center;
-  margin-top: 5px;
+  width: 100%;
+  background-color: white;
 }
 
-.checkbox-group input[type="checkbox"] {
-  margin-right: 8px;
+.print-options-container {
+  flex: 1;
+  min-width: 280px;
+  overflow-y: auto;
+}
+
+/* Print modal styles */
+.print-modal-content {
+  width: 90%;
+  max-width: 1200px;
+  height: 80%;
+  max-height: 800px;
+  display: flex;
+  flex-direction: column;
+}
+
+.print-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.print-preview-container {
+  flex: 1;
+  border: 1px solid var(--border-color);
+  background-color: var(--background-color);
+  margin-right: 1rem;
+}
+
+#print-preview {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: white;
+}
+
+.print-settings {
+  width: 300px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.radio-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.radio-group input[type="radio"] {
+  margin-right: 0.25rem;
 }

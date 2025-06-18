@@ -36,13 +36,34 @@ contextBridge.exposeInMainWorld('api', {
     getDefaultUrl: () => ipcRenderer.invoke('settings:get-default-url'),
   },
   
+  // Print operations
+  print: {
+    execute: (options) => ipcRenderer.invoke('print:execute', options),
+    toPdf: (options) => ipcRenderer.invoke('print:to-pdf', options),
+    preview: (options) => ipcRenderer.invoke('print:preview', options),
+    registerWebview: (webContentsId) => ipcRenderer.invoke('print:register-webview', webContentsId),
+    unregisterWebview: (webContentsId) => ipcRenderer.invoke('print:unregister-webview', webContentsId),
+  },
+  
+  // Shell operations
+  shell: {
+    openPath: (path) => ipcRenderer.invoke('shell:open-path', path),
+    openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
+  },
+  
   // Logging
   log: (message) => ipcRenderer.invoke('log', message),
   
   // Event listeners
   on: (channel, callback) => {
     // Whitelist channels
-    const validChannels = ['cache:updated', 'auth:state-changed', 'dashboard:data-update'];
+    const validChannels = [
+      'cache:updated', 
+      'auth:state-changed', 
+      'dashboard:data-update',
+      'show-custom-print',
+      'settings:updated'
+    ];
     if (validChannels.includes(channel)) {
       // Deliberately strip event as it includes `sender` 
       const subscription = (event, ...args) => callback(...args);
@@ -52,18 +73,9 @@ contextBridge.exposeInMainWorld('api', {
       return () => ipcRenderer.removeListener(channel, subscription);
     }
     return null;
-  },
-  
-  // Print operations
-  print: {
-    getPrinters: () => ipcRenderer.invoke('print:get-printers'),
-    print: (options) => ipcRenderer.invoke('print:execute', options),
-    generatePDF: (options) => ipcRenderer.invoke('print:generate-pdf', options),
-    getSettings: () => ipcRenderer.invoke('print:get-settings'),
-    saveSettings: (settings) => ipcRenderer.invoke('print:save-settings', settings),
-    capturePreview: (options) => ipcRenderer.invoke('print:capture-preview', options),
-  },
+  }
 });
 
 // Log that preload is completed
+console.log('Preload script executed successfully');
 console.log('Preload script executed successfully');

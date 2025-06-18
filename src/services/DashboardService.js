@@ -10,26 +10,8 @@ class DashboardService {
   }
 
   initialize() {
-    // Set up IPC handlers
-    ipcMain.handle('dashboard:connect-realtime', async (event, dashboardUrl) => {
-      return await this.connectToDashboard(dashboardUrl);
-    });
-
-    ipcMain.handle('dashboard:disconnect-realtime', async (event, dashboardUrl) => {
-      return await this.disconnectFromDashboard(dashboardUrl);
-    });
-    
-    ipcMain.handle('dashboard:fetch-data', async (event, { url, endpoint }) => {
-      return await this.fetchDashboardData(url, endpoint);
-    });
-    
-    ipcMain.handle('dashboard:start-polling', async (event, { url, endpoint, interval }) => {
-      return await this.startPolling(url, endpoint, interval);
-    });
-    
-    ipcMain.handle('dashboard:stop-polling', async (event, { url, endpoint }) => {
-      return await this.stopPolling(url, endpoint);
-    });
+    // IPC handlers are registered in main.js, no need to duplicate them here
+    console.log('DashboardService initialized');
   }
 
   async connectToDashboard(dashboardUrl) {
@@ -137,52 +119,62 @@ class DashboardService {
 
   async startPolling(url, endpoint, interval = 30000) {
     try {
-      const pollingKey = `${url}${endpoint}`;
+      const key = this.getPollingKey(url, endpoint);
       
       // Stop existing polling if any
-      if (this.pollingIntervals.has(pollingKey)) {
-        clearInterval(this.pollingIntervals.get(pollingKey));
+      if (this.pollingIntervals[key]) {
+        clearInterval(this.pollingIntervals[key]);
       }
       
-      // Create polling interval
+      console.log(`Starting polling for ${url}${endpoint ? ' ' + endpoint : ''} every ${interval}ms`);
+      
       const intervalId = setInterval(async () => {
         const data = await this.fetchDashboardData(url, endpoint);
         if (data.success) {
           // Send data to renderer
-          ipcMain.emit('dashboard:data-update', { 
-            url, 
-            endpoint, 
-            data: data.data,
-            polled: true
-          });
+          const { BrowserWindow } = require('electron');
+          const mainWindow = BrowserWindow.getFocusedWindow();
+          if (mainWindow) {
+            mainWindow.webContents.send('dashboard:data-update', { 
+              url, 
+              endpoint, 
+              data: data.data,
+              polled: true
+            });
+          }
         }
       }, interval);
       
-      this.pollingIntervals.set(pollingKey, intervalId);
+      this.pollingIntervals[key] = intervalId;
       
-      return { success: true, message: `Started polling ${pollingKey} at ${interval}ms intervals` };
+      return { success: true };
     } catch (error) {
-      console.error(`Error starting polling for ${url}${endpoint}:`, error);
+      console.error('Error starting dashboard polling:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  async stopPolling(url, endpoint) {
+    try {
+      const key = this.getPollingKey(url, endpoint);
+      const intervalId = this.pollingIntervals[key];
+      
+      if (intervalId) {
+        clearInterval(intervalId);
+        delete this.pollingIntervals[key];
+        
+        console.log(`Stopped polling for ${url}${endpoint ? ' ' + endpoint : ''}`);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error stopping dashboard polling:', error);
       return { success: false, error: error.message };
     }
   }
 
-  async stopPolling(url, endpoint) {
-    try {
-      const pollingKey = `${url}${endpoint}`;
-      
-      if (!this.pollingIntervals.has(pollingKey)) {
-        return { success: false, message: 'No active polling for this endpoint' };
-      }
-      
-      clearInterval(this.pollingIntervals.get(pollingKey));
-      this.pollingIntervals.delete(pollingKey);
-      
-      return { success: true, message: `Stopped polling ${pollingKey}` };
-    } catch (error) {
-      console.error(`Error stopping polling for ${url}${endpoint}:`, error);
-      return { success: false, error: error.message };
-    }
+  getPollingKey(url, endpoint) {
+    return `${url}${endpoint || ''}`;
   }
 }
 

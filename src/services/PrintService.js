@@ -1,342 +1,372 @@
-const { BrowserWindow, app, dialog } = require('electron');
-const ElectronStore = require('electron-store');
+const { BrowserWindow, ipcMain, app } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const { v4: uuidv4 } = require('uuid');
 
+/**
+ * PrintService handles all print-related functionality
+ * including custom print dialogs and PDF generation
+ */
 class PrintService {
   constructor() {
-    this.store = new ElectronStore({
-      name: 'print-settings',
-      cwd: app ? app.getPath('userData') : null
-    });
+    this.printWindows = new Map();
+    this.registeredWebviews = new Map();
+    this.printDirectory = path.join(app.getPath('userData'), 'prints');
     
-    this.settings = {
-      printer: '',
+    // Ensure print directory exists
+    if (!fs.existsSync(this.printDirectory)) {
+      fs.mkdirSync(this.printDirectory, { recursive: true });
+    }
+    
+    this.defaultPrintOptions = {
+      silent: false,
+      printBackground: true,
+      color: true,
+      margin: {
+        marginType: 'default'
+      },
+      landscape: false,
+      pagesPerSheet: 1,
+      collate: false,
       copies: 1,
-      collate: true,
-      pageSelection: 'all',
-      pageRanges: '',
-      orientation: 'portrait',
-      color: 'color',
-      paperSize: 'A4',
-      margins: 0
+      header: 'Cash Browser Print',
+      footer: 'Page %p of %n'
     };
     
-    this.printerCapabilities = {};
+    this.settings = {
+      // Default print settings can be added here
+    };
   }
 
   initialize() {
-    // Load stored settings
-    const savedSettings = this.store.get('settings');
-    if (savedSettings) {
-      this.settings = { ...this.settings, ...savedSettings };
-    }
+    this.setupIpcHandlers();
+  }
+
+  setupIpcHandlers() {
+    // Print to PDF handler
+    ipcMain.handle('print:to-pdf', async (_event, { webContentsId, options }) => {
+      try {
+        const webContents = this.getWebContentsById(webContentsId);
+        if (!webContents) {
+          throw new Error(`WebContents with ID ${webContentsId} not found`);
+        }
+        
+        const mergedOptions = { ...this.defaultPrintOptions, ...options };
+        const pdfPath = path.join(this.printDirectory, `print-${Date.now()}.pdf`);
+        
+        const data = await webContents.printToPDF(mergedOptions);
+        fs.writeFileSync(pdfPath, data);
+        
+        return {
+          success: true,
+          pdfPath: pdfPath
+        };
+      } catch (error) {
+        console.error('Error printing to PDF:', error);
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    });
+
+    // Print handler
+    ipcMain.handle('print:execute', async (_event, { webContentsId, options }) => {
+      try {
+        const webContents = this.getWebContentsById(webContentsId);
+        if (!webContents) {
+          throw new Error(`WebContents with ID ${webContentsId} not found`);
+        }
+        
+        const mergedOptions = { ...this.defaultPrintOptions, ...options };
+        await webContents.print(mergedOptions);
+        
+        return {
+          success: true
+        };
+      } catch (error) {
+        console.error('Error printing:', error);
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    });
+
+    // Preview print handler
+    ipcMain.handle('print:preview', async (_event, { webContentsId, options }) => {
+      try {
+        const webContents = this.getWebContentsById(webContentsId);
+        if (!webContents) {
+          throw new Error(`WebContents with ID ${webContentsId} not found`);
+        }
+        
+        const printWindow = await this.createPrintPreviewWindow(webContents, options);
+        return {
+          success: true,
+          windowId: printWindow.id
+        };
+      } catch (error) {
+        console.error('Error creating print preview:', error);
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    });
     
-    // We'll pre-fetch printer capabilities when the service initializes
-    this.updatePrinterCapabilities();
-  }
-
-  async updatePrinterCapabilities() {
-    try {
-      const printers = await this.getAvailablePrinters();
-      const capabilities = {};
-      
-      for (const printer of printers) {
-        capabilities[printer.name] = await this.getPrinterCapabilities(printer.name);
+    // Register webview for printing
+    ipcMain.handle('print:register-webview', (_event, webContentsId) => {
+      try {
+        this.registerWebview(webContentsId);
+        return { success: true };
+      } catch (error) {
+        console.error('Error registering webview for printing:', error);
+        return { success: false, error: error.message };
       }
-      
-      this.printerCapabilities = capabilities;
-    } catch (error) {
-      console.error('Error updating printer capabilities:', error);
-    }
-  }
-
-  async getAvailablePrinters() {
-    return new Promise((resolve) => {
-      if (!BrowserWindow.getAllWindows()[0]) {
-        resolve([]);
-        return;
+    });
+    
+    // Unregister webview
+    ipcMain.handle('print:unregister-webview', (_event, webContentsId) => {
+      try {
+        this.unregisterWebview(webContentsId);
+        return { success: true };
+      } catch (error) {
+        console.error('Error unregistering webview:', error);
+        return { success: false, error: error.message };
       }
-      
-      const printers = BrowserWindow.getAllWindows()[0].webContents.getPrinters();
-      resolve(printers);
+    });
+    
+    // Add missing handlers that were in main.js
+    ipcMain.handle('print:get-printers', async () => {
+      try {
+        const { webContents } = require('electron');
+        const printers = await webContents.getPrinters();
+        return { success: true, printers };
+      } catch (error) {
+        console.error('Error getting printers:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('print:get-settings', async () => {
+      return this.getSettings();
+    });
+
+    ipcMain.handle('print:save-settings', async (_event, settings) => {
+      return this.saveSettings(settings);
+    });
+
+    ipcMain.handle('print:generate-preview', async (_event, webContentsId) => {
+      return await this.capturePreview(webContentsId);
     });
   }
 
-  async getPrinterCapabilities(printerName) {
-    try {
-      // In a real implementation, we would query the printer's capabilities
-      // For now we'll return a basic set of capabilities
-      const printers = await this.getAvailablePrinters();
-      const printer = printers.find(p => p.name === printerName);
-      
-      if (!printer) {
-        return {
-          paperSizes: [],
-          defaultPaperSize: 'A4',
-          colorModes: ['color', 'bw'],
-          defaultColorMode: 'color',
-          duplex: true
-        };
+  async createPrintPreviewWindow(webContents, options = {}) {
+    const printWindowId = uuidv4();
+    
+    const printWindow = new BrowserWindow({
+      width: 800,
+      height: 600,
+      parent: BrowserWindow.getFocusedWindow() || undefined,
+      modal: true,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, '../main/print-preload.js')
       }
-      
-      // Extract paper sizes from the printer capabilities
-      const paperSizes = [];
-      const mediaSize = printer.options && printer.options['media-size'];
-      
-      if (mediaSize && Array.isArray(mediaSize)) {
-        for (const size of mediaSize) {
-          if (size.option) {
-            paperSizes.push({
-              name: size.option,
-              width: size['width-microns'],
-              height: size['height-microns']
-            });
-          }
-        }
-      }
-      
-      // If no paper sizes are available, add standard ones
-      if (paperSizes.length === 0) {
-        paperSizes.push(
-          { name: 'A4', width: 210000, height: 297000 },
-          { name: 'Letter', width: 215900, height: 279400 },
-          { name: 'Legal', width: 215900, height: 355600 },
-          { name: 'B5', width: 176000, height: 250000 }
-        );
-      }
-      
-      // Determine default paper size from printer
-      let defaultPaperSize = 'A4';
-      const defaultMedia = printer.options && printer.options['media-default'];
-      if (defaultMedia) {
-        defaultPaperSize = defaultMedia;
-      }
-      
-      return {
-        paperSizes,
-        defaultPaperSize,
-        colorModes: ['color', 'bw'],
-        defaultColorMode: 'color',
-        duplex: true
-      };
-    } catch (error) {
-      console.error('Error getting printer capabilities:', error);
-      return {
-        paperSizes: [
-          { name: 'A4', width: 210000, height: 297000 },
-          { name: 'Letter', width: 215900, height: 279400 },
-          { name: 'Legal', width: 215900, height: 355600 },
-          { name: 'B5', width: 176000, height: 250000 }
-        ],
-        defaultPaperSize: 'A4',
-        colorModes: ['color', 'bw'],
-        defaultColorMode: 'color',
-        duplex: true
-      };
+    });
+    
+    this.printWindows.set(printWindowId, printWindow);
+    
+    printWindow.on('closed', () => {
+      this.printWindows.delete(printWindowId);
+    });
+
+    // First capture the page as PDF
+    const printOptions = { ...this.defaultPrintOptions, ...options };
+    const pdfData = await webContents.printToPDF(printOptions);
+    
+    // Save temporary PDF file
+    const tempPdfPath = path.join(os.tmpdir(), `print-${printWindowId}.pdf`);
+    fs.writeFileSync(tempPdfPath, pdfData);
+    
+    // Load the print preview HTML
+    await printWindow.loadFile(path.join(__dirname, '../renderer/print-preview.html'));
+    
+    // Pass the PDF path to the renderer
+    printWindow.webContents.send('pdf-ready', {
+      pdfPath: tempPdfPath,
+      options: printOptions
+    });
+    
+    // Show the window when ready
+    printWindow.once('ready-to-show', () => {
+      printWindow.show();
+    });
+    
+    return {
+      id: printWindowId,
+      window: printWindow
+    };
+  }
+
+  registerWebview(webContentsId) {
+    if (!webContentsId) {
+      throw new Error('WebContents ID is required');
+    }
+    
+    const webContents = this.getWebContentsById(webContentsId);
+    if (!webContents) {
+      throw new Error(`WebContents with ID ${webContentsId} not found`);
+    }
+    
+    this.registeredWebviews.set(webContentsId, webContents);
+  }
+
+  unregisterWebview(webContentsId) {
+    if (this.registeredWebviews.has(webContentsId)) {
+      this.registeredWebviews.delete(webContentsId);
     }
   }
 
-  async getPrinters() {
-    try {
-      const printers = await this.getAvailablePrinters();
-      
-      // Update capabilities
-      await this.updatePrinterCapabilities();
-      
-      return { 
-        success: true, 
-        printers,
-        capabilities: this.printerCapabilities
-      };
-    } catch (error) {
-      console.error('Error getting printers:', error);
-      return { success: false, error: error.message };
+  getWebContentsById(webContentsId) {
+    // First check our registered webviews
+    if (this.registeredWebviews.has(webContentsId)) {
+      return this.registeredWebviews.get(webContentsId);
     }
+    
+    // If not found, try to find in all Electron webContents
+    if (webContentsId) {
+      return require('electron').webContents.fromId(webContentsId);
+    }
+    
+    return null;
   }
-
-  async print(options) {
-    try {
-      const { webContentsId, ...printOptions } = options;
-      
-      // Find the WebContents instance with the given ID
-      let webContents = null;
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (win.webContents.id === webContentsId) {
-          webContents = win.webContents;
-          break;
+  
+  printToPDF(webContentsId, options = {}) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const webContents = this.getWebContentsById(webContentsId);
+        if (!webContents) {
+          return reject(new Error(`WebContents with ID ${webContentsId} not found`));
         }
         
-        // Search in webviews within this window
-        const webviewWebContents = win.webContents.getWebContentsId && win.webContents.getWebContents();
-        if (webviewWebContents) {
-          for (const wc of webviewWebContents) {
-            if (wc.id === webContentsId) {
-              webContents = wc;
-              break;
-            }
-          }
-        }
-      }
-      
-      if (!webContents) {
-        // Try to find webview directly
-        const allWebContents = require('electron').webContents.getAllWebContents();
-        webContents = allWebContents.find(wc => wc.id === webContentsId);
-      }
-      
-      if (!webContents) {
-        throw new Error(`WebContents with ID ${webContentsId} not found`);
-      }
-      
-      // Format print options for Electron
-      const electronPrintOptions = {
-        silent: true,
-        printBackground: true,
-        deviceName: printOptions.printer,
-        color: printOptions.color !== false,
-        copies: printOptions.copies || 1,
-        collate: printOptions.collate !== false,
-        pageRanges: printOptions.pageRanges ? this.parsePageRanges(printOptions.pageRanges) : undefined,
-        landscape: !!printOptions.landscape,
-        marginsType: printOptions.margins || 0,
-        scaleFactor: 100,
-        pageSize: printOptions.paperSize || undefined
-      };
-      
-      // Print the document
-      await webContents.print(electronPrintOptions);
-      
-      // If we got here without an exception, assume success
-      return { success: true };
-    } catch (error) {
-      console.error('Print error:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  parsePageRanges(pageRangesStr) {
-    try {
-      // Format: "1-5, 8, 11-13"
-      const rangeStrings = pageRangesStr.split(',');
-      const ranges = [];
-      
-      for (const rangeStr of rangeStrings) {
-        const trimmed = rangeStr.trim();
+        const printOptions = { ...this.defaultPrintOptions, ...options };
+        const pdfData = await webContents.printToPDF(printOptions);
         
-        // Check if it's a single page
-        if (/^\d+$/.test(trimmed)) {
-          const page = parseInt(trimmed, 10);
-          ranges.push({ from: page, to: page });
-        } 
-        // Check if it's a range (e.g., "1-5")
-        else if (/^\d+-\d+$/.test(trimmed)) {
-          const [from, to] = trimmed.split('-').map(p => parseInt(p.trim(), 10));
-          ranges.push({ from, to });
-        }
+        const pdfPath = path.join(this.printDirectory, `print-${Date.now()}.pdf`);
+        fs.writeFileSync(pdfPath, pdfData);
+        
+        resolve({ 
+          success: true,
+          pdfPath
+        });
+      } catch (error) {
+        console.error('Error printing to PDF:', error);
+        reject(error);
       }
-      
-      return ranges;
-    } catch (error) {
-      console.error('Error parsing page ranges:', error);
-      return undefined;
-    }
+    });
   }
-
-  async printToPDF(options) {
+  
+  async capturePreview(webContentsId, format = 'html') {
     try {
-      const { webContentsId, ...pdfOptions } = options;
-      
-      // Find the WebContents instance
-      let webContents = null;
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (win.webContents.id === webContentsId) {
-          webContents = win.webContents;
-          break;
-        }
-      }
-      
-      if (!webContents) {
-        const allWebContents = require('electron').webContents.getAllWebContents();
-        webContents = allWebContents.find(wc => wc.id === webContentsId);
-      }
-      
-      if (!webContents) {
-        throw new Error(`WebContents with ID ${webContentsId} not found`);
-      }
-      
-      // Create PDF options
-      const printOptions = {
-        printBackground: true,
-        landscape: !!pdfOptions.landscape,
-        marginsType: pdfOptions.margins || 0,
-        pageSize: pdfOptions.paperSize || 'A4'
-      };
-      
-      // Generate PDF
-      const data = await webContents.printToPDF(printOptions);
-      
-      // Prompt user to save PDF
-      const defaultPath = path.join(app.getPath('downloads'), 'document.pdf');
-      const { canceled, filePath } = await dialog.showSaveDialog({
-        defaultPath,
-        filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
-      });
-      
-      if (canceled || !filePath) {
-        return { success: false, message: 'Save canceled by user' };
-      }
-      
-      // Save PDF file
-      fs.writeFileSync(filePath, data);
-      
-      return { success: true, filePath };
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async capturePreview(options) {
-    try {
-      const { webContentsId, format = 'html' } = options;
-      
-      // Find the WebContents instance
-      let webContents = null;
-      const allWebContents = require('electron').webContents.getAllWebContents();
-      webContents = allWebContents.find(wc => wc.id === webContentsId);
-      
+      const webContents = this.getWebContentsById(webContentsId);
       if (!webContents) {
         throw new Error(`WebContents with ID ${webContentsId} not found`);
       }
       
       if (format === 'html') {
-        // Capture the HTML content
-        const content = await webContents.executeJavaScript(`
+        // Capture as HTML content
+        const content = await webContents.executeJavaScript(
           (function() {
-            const styles = Array.from(document.styleSheets)
-              .filter(sheet => !sheet.href || sheet.href.startsWith(window.location.origin))
-              .map(sheet => {
-                try {
-                  return Array.from(sheet.cssRules)
-                    .map(rule => rule.cssText)
-                    .join('\\n');
-                } catch (e) {
-                  console.error('Error accessing CSS rules:', e);
-                  return '';
-                }
-              })
-              .filter(Boolean)
+            const getStyles = () => {
+              try {
+                let styles = '';
+                
+                // Get stylesheet rules
+                Array.from(document.styleSheets).forEach(sheet => {
+                  try {
+                    if (!sheet.href || sheet.href.startsWith(window.location.origin)) {
+                      const rules = Array.from(sheet.cssRules || []);
+                      styles += rules.map(rule => rule.cssText).join('\\n');
+                    }
+                  } catch (e) {
+                    console.warn('Error accessing CSS rules:', e);
+                  }
+                });
+                
+                // Add inline styles
+                const inlineStyles = Array.from(document.querySelectorAll('style'));
+                inlineStyles.forEach(style => {
+                  styles += style.innerHTML;
+                });
+                
+                return styles;
+              } catch (e) {
+                console.error('Error getting styles:', e);
+                return '';
+              }
+            };
+            
+            const getBaseTag = () => {
+              const baseUrl = document.baseURI || window.location.href;
+              return `<base href="${baseUrl}" />`;
+            };
+            
+            // Get computed styles for body
+            const computedStyles = window.getComputedStyle(document.body);
+            const bodyStyles = `
+              body {
+                color: ${computedStyles.color};
+                background-color: ${computedStyles.backgroundColor};
+                font-family: ${computedStyles.fontFamily};
+                font-size: ${computedStyles.fontSize};
+                line-height: ${computedStyles.lineHeight};
+              }
+            `;
+            
+            // Create the style block
+            const styleBlock = getStyles();
+            const styleElement = styleBlock ? 
+              '<style>' + bodyStyles + styleBlock + '</style>' : 
+              '<style>' + bodyStyles + '</style>';
+              
+            const baseTag = getBaseTag();
+            
+            // Get meta tags (especially charset)
+            const metaTags = Array.from(document.querySelectorAll('meta'))
+              .map(meta => meta.outerHTML)
               .join('\\n');
               
-            const styleElement = styles ? 
-              '<style>' + styles + '</style>' : '';
+            const head = `
+              <head>
+                ${metaTags}
+                ${baseTag}
+                ${styleElement}
+              </head>
+            `;
               
-            return styleElement + document.body.innerHTML;
+            // Get the body content
+            const body = document.body.innerHTML;
+            
+            return {
+              head,
+              body,
+            };
           })()
-        `);
+        );
         
-        return { success: true, content };
+        console.log('Successfully captured HTML content');
+        
+        // Return HTML content in a format that can be used directly
+        return { 
+          success: true, 
+          content: content.body,
+          head: content.head 
+        };
       } else if (format === 'image') {
         // Capture as PNG image
         const image = await webContents.capturePage();
@@ -362,7 +392,9 @@ class PrintService {
   saveSettings(newSettings) {
     try {
       this.settings = { ...this.settings, ...newSettings };
-      this.store.set('settings', this.settings);
+      if (this.store) {
+        this.store.set('settings', this.settings);
+      }
       return { success: true, settings: this.settings };
     } catch (error) {
       console.error('Error saving print settings:', error);

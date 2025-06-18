@@ -1,7 +1,9 @@
 const ElectronStore = require('electron-store');
-const path = require('path');
 const { app } = require('electron');
 
+/**
+ * SettingsService manages application settings and user preferences
+ */
 class SettingsService {
   constructor() {
     this.store = new ElectronStore({
@@ -15,7 +17,14 @@ class SettingsService {
       cacheEnabled: true,
       cacheDuration: 24, // hours
       autoLogin: false,
-      theme: 'light'
+      theme: 'light',
+      searchEngine: 'google',
+      printSettings: {
+        defaultPrinter: '',
+        colorMode: 'color',
+        paperSize: 'A4',
+        orientation: 'portrait'
+      }
     };
   }
 
@@ -25,8 +34,12 @@ class SettingsService {
       this.store.set('settings', this.defaultSettings);
     }
     
-    // Make the settings service globally available for other services
-    global.settingsService = this;
+    // Migration for older versions - ensure all default settings exist
+    const currentSettings = this.store.get('settings', {});
+    const updatedSettings = { ...this.defaultSettings, ...currentSettings };
+    this.store.set('settings', updatedSettings);
+    
+    return true;
   }
 
   getAllSettings() {
@@ -63,6 +76,28 @@ class SettingsService {
 
   setDefaultUrl(url) {
     return this.updateSetting('defaultUrl', url);
+  }
+  
+  getTheme() {
+    return this.getSetting('theme');
+  }
+  
+  getCacheDuration() {
+    return this.getSetting('cacheDuration');
+  }
+  
+  getSearchEngine() {
+    return this.getSetting('searchEngine');
+  }
+  
+  getPrintSettings() {
+    return this.getSetting('printSettings');
+  }
+  
+  updatePrintSettings(printSettings) {
+    const currentPrintSettings = this.getPrintSettings();
+    const updatedPrintSettings = { ...currentPrintSettings, ...printSettings };
+    return this.updateSetting('printSettings', updatedPrintSettings);
   }
 }
 

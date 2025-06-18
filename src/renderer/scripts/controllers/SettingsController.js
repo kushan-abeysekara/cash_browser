@@ -82,6 +82,25 @@ export class SettingsController {
       defaultUrlInput.value = this.currentSettings.defaultUrl || '';
     }
     
+    // Populate search engine selection
+    const searchEngineSelect = this.settingsForm.querySelector('#search-engine');
+    if (searchEngineSelect && this.currentSettings.searchEngineOptions) {
+      // Get the current search engine URL
+      const currentSearchEngine = this.currentSettings.searchEngine;
+      
+      // Clear existing options
+      searchEngineSelect.innerHTML = '';
+      
+      // Add options from the settings
+      Object.keys(this.currentSettings.searchEngineOptions).forEach(key => {
+        const option = document.createElement('option');
+        option.value = this.currentSettings.searchEngineOptions[key];
+        option.textContent = key.charAt(0).toUpperCase() + key.slice(1); // Capitalize first letter
+        option.selected = this.currentSettings.searchEngineOptions[key] === currentSearchEngine;
+        searchEngineSelect.appendChild(option);
+      });
+    }
+    
     // Populate other settings as they are added in the future
     const cacheEnabledInput = this.settingsForm.querySelector('#cache-enabled');
     if (cacheEnabledInput) {
@@ -102,7 +121,8 @@ export class SettingsController {
       
       const formData = new FormData(this.settingsForm);
       const newSettings = {
-        defaultUrl: formData.get('defaultUrl') || 'about:blank'
+        defaultUrl: formData.get('defaultUrl') || 'about:blank',
+        searchEngine: formData.get('searchEngine') || this.currentSettings.searchEngine
       };
       
       // Add cache settings if they exist

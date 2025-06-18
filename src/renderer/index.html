@@ -21,8 +21,11 @@
           <button id="refresh-button" class="nav-button" title="Refresh">
             <span class="material-icons">refresh</span>
           </button>
+          <button id="print-button" class="nav-button" title="Print current page">
+            <span class="material-icons">print</span>
+          </button>
         </div>
-        <input type="text" id="url-input" placeholder="Enter URL..." />
+        <input type="text" id="url-input" placeholder="Enter URL or search..." />
         <button id="go-button" class="go-button" title="Go">
           <span class="material-icons">arrow_forward</span>
         </button>
@@ -32,26 +35,23 @@
           </button>
           <div id="dropdown-menu" class="dropdown-menu">
             <div class="menu-section">
-              <div class="menu-section-title">File</div>
-              <button id="menu-print" class="menu-item">Print...</button>
-            </div>
-            <div class="menu-section">
               <div class="menu-section-title">Navigation</div>
               <button id="menu-browser" class="menu-item">Browser</button>
               <button id="menu-cache" class="menu-item">Cache Manager</button>
               <button id="menu-dashboard" class="menu-item">Dashboards</button>
             </div>
             <div class="menu-section">
+              <div class="menu-section-title">Options</div>
+              <button id="menu-print" class="menu-item">Print...</button>
+              <button id="toggle-interception" class="menu-item">Enable Cache Interception</button>
+              <button id="clear-cache-menu" class="menu-item">Clear Cache</button>
+              <button id="menu-settings" class="menu-item">Settings</button>
+            </div>
+            <div class="menu-section">
               <div class="menu-section-title">Zoom</div>
               <button id="zoom-in" class="menu-item">Zoom In</button>
               <button id="zoom-out" class="menu-item">Zoom Out</button>
               <button id="zoom-reset" class="menu-item">Reset Zoom (100%)</button>
-            </div>
-            <div class="menu-section">
-              <div class="menu-section-title">Options</div>
-              <button id="toggle-interception" class="menu-item">Toggle Cache Interception</button>
-              <button id="clear-cache-menu" class="menu-item">Clear Cache</button>
-              <button id="menu-settings" class="menu-item">Settings</button>
             </div>
           </div>
         </div>
@@ -147,8 +147,19 @@
         <form id="settings-form">
           <div class="form-group">
             <label for="default-url">Default URL</label>
-            <input type="url" id="default-url" name="defaultUrl" placeholder="https://example.com" />
+            <input type="url" id="default-url" name="defaultUrl" placeholder="https://example.com" class="full-width" />
             <p class="form-help">This URL will be loaded automatically when the application starts.</p>
+          </div>
+          
+          <div class="form-group">
+            <label for="search-engine">Search Engine</label>
+            <select id="search-engine" name="searchEngine" class="full-width">
+              <option value="https://www.google.com/search?q=">Google</option>
+              <option value="https://www.bing.com/search?q=">Bing</option>
+              <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
+              <option value="https://search.yahoo.com/search?p=">Yahoo</option>
+            </select>
+            <p class="form-help">Choose which search engine to use when searching from the URL bar.</p>
           </div>
           
           <div class="form-group">
@@ -162,7 +173,7 @@
           
           <div class="form-group">
             <label for="cache-duration">Cache Duration (hours)</label>
-            <input type="number" id="cache-duration" name="cacheDuration" min="1" max="720" />
+            <input type="number" id="cache-duration" name="cacheDuration" min="1" max="720" value="24" class="full-width" />
             <p class="form-help">How long to keep items in cache before they expire.</p>
           </div>
           
@@ -176,53 +187,25 @@
 
     <!-- Print Modal -->
     <div id="print-modal" class="modal">
-      <div class="modal-content print-modal">
+      <div class="modal-content print-modal-content">
         <span class="close-button">&times;</span>
         <h2>Print</h2>
-        
-        <div class="print-layout">
+        <div class="print-container">
           <div class="print-preview-container">
-            <div class="print-preview-header">Preview</div>
-            <iframe id="print-preview-frame" class="print-preview"></iframe>
+            <iframe id="print-preview" src="about:blank"></iframe>
           </div>
-          
-          <div class="print-options-container">
+          <div class="print-settings">
             <form id="print-form">
               <div class="form-group">
-                <label for="printers-list">Destination</label>
-                <select id="printers-list" name="printer" class="full-width"></select>
+                <label for="printer-select">Printer</label>
+                <select id="printer-select" name="printer">
+                  <option value="default">Default Printer</option>
+                </select>
               </div>
               
               <div class="form-group">
                 <label for="copies">Copies</label>
-                <input type="number" id="copies" name="copies" min="1" value="1" class="small-input">
-                <div class="checkbox-group">
-                  <input type="checkbox" id="collate" name="collate">
-                  <label for="collate">Collate</label>
-                </div>
-              </div>
-              
-              <div class="form-group">
-                <label>Pages</label>
-                <div class="radio-group">
-                  <input type="radio" id="all-pages" name="pageSelection" value="all" checked>
-                  <label for="all-pages">All</label>
-                  
-                  <input type="radio" id="custom-pages" name="pageSelection" value="custom">
-                  <label for="custom-pages">Custom</label>
-                </div>
-                <input type="text" id="page-ranges" name="pageRanges" placeholder="e.g., 1-5, 8, 11-13" class="full-width" disabled>
-              </div>
-              
-              <div class="form-group">
-                <label>Layout</label>
-                <div class="radio-group">
-                  <input type="radio" id="portrait" name="orientation" value="portrait" checked>
-                  <label for="portrait">Portrait</label>
-                  
-                  <input type="radio" id="landscape" name="orientation" value="landscape">
-                  <label for="landscape">Landscape</label>
-                </div>
+                <input type="number" id="copies" name="copies" value="1" min="1" max="100" />
               </div>
               
               <div class="form-group">
@@ -230,26 +213,57 @@
                 <div class="radio-group">
                   <input type="radio" id="color" name="color" value="color" checked>
                   <label for="color">Color</label>
-                  
                   <input type="radio" id="bw" name="color" value="bw">
                   <label for="bw">Black & White</label>
                 </div>
               </div>
               
               <div class="form-group">
-                <label for="paper-size">Paper size</label>
-                <select id="paper-size" name="paperSize" class="full-width">
+                <label for="paper-size">Paper Size</label>
+                <select id="paper-size" name="paper-size">
                   <option value="A4">A4</option>
                   <option value="Letter">Letter</option>
                   <option value="Legal">Legal</option>
-                  <option value="Tabloid">Tabloid</option>
-                  <option value="A3">A3</option>
-                  <option value="A5">A5</option>
                 </select>
               </div>
               
               <div class="form-group">
-                <label for="margins">Margins</label>
+                <label>Orientation</label>
+                <div class="radio-group">
+                  <input type="radio" id="portrait" name="orientation" value="portrait" checked>
+                  <label for="portrait">Portrait</label>
+                  <input type="radio" id="landscape" name="orientation" value="landscape">
+                  <label for="landscape">Landscape</label>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="scale">Scale</label>
+                <select id="scale" name="scale">
+                  <option value="1.0">100%</option>
+                  <option value="0.9">90%</option>
+                  <option value="0.8">80%</option>
+                  <option value="0.7">70%</option>
+                  <option value="0.6">60%</option>
+                  <option value="0.5">50%</option>
+                </select>
+              </div>
+              
+              <div class="form-actions">
+                <button type="button" id="save-pdf" class="secondary-button">Save as PDF</button>
+                <button type="button" id="cancel-print" class="secondary-button">Cancel</button>
+                <button type="submit" class="primary-button">Print</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./scripts/app.js" type="module"></script>
+</body>
+</html>
                 <select id="margins" name="margins" class="full-width">
                   <option value="0">Default</option>
                   <option value="1">None</option>
